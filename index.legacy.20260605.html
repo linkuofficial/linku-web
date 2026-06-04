@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Linku Tech</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black: #03060e;
+  --white: #e8e6e0;
+  --dim: #3a3f4a;
+  --dim2: #555b6a;
+  --accent: #c8b89a;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-weight: 300;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+#cursor {
+  position: fixed;
+  width: 5px; height: 5px;
+  background: var(--accent);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%,-50%);
+}
+#cursor-ring {
+  position: fixed;
+  width: 30px; height: 30px;
+  border: 1px solid rgba(200,184,154,0.25);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: width 0.25s, height 0.25s, border-color 0.25s;
+}
+
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 32px 56px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nav-logo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: var(--white);
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 48px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--dim2);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+.nav-links a:hover { color: var(--white); }
+
+section { position: relative; overflow: hidden; }
+
+/* ── HERO ── */
+#hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0 56px 80px;
+}
+
+#hero-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Vignette */
+#hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 30%, rgba(3,6,14,0.65) 100%);
+  pointer-events: none;
+}
+
+.hero-content { position: relative; z-index: 2; }
+
+.hero-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(80px, 11vw, 160px);
+  line-height: 0.9;
+  letter-spacing: -1px;
+  color: var(--white);
+  opacity: 0;
+  animation: fadeUp 1s ease 0.4s forwards;
+}
+
+.hero-title .ghost {
+  display: block;
+  color: rgba(232,230,224,0.1);
+}
+
+.hero-bottom {
+  margin-top: 48px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  opacity: 0;
+  animation: fadeUp 1s ease 0.8s forwards;
+}
+
+.hero-sub {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--dim2);
+  max-width: 380px;
+}
+
+.hero-line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.hero-line::before {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 1px;
+  background: var(--dim);
+}
+
+/* ── STATEMENT ── */
+#statement {
+  min-height: 100vh;
+  background: var(--white);
+  color: var(--black);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 120px 56px;
+}
+
+.statement-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(64px, 9vw, 128px);
+  line-height: 0.92;
+  letter-spacing: -0.5px;
+  max-width: 860px;
+}
+
+.statement-title .muted { color: rgba(3,6,14,0.18); }
+
+.statement-rule {
+  width: 64px;
+  height: 1px;
+  background: rgba(3,6,14,0.2);
+  margin: 64px 0 40px;
+}
+
+.statement-body {
+  font-size: 14px;
+  line-height: 2;
+  color: rgba(3,6,14,0.45);
+  max-width: 480px;
+}
+
+/* ── PILLARS ── */
+#pillars {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 120px 56px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.section-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 96px;
+}
+
+.pillars-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1.5fr;
+  gap: 0;
+  max-width: 1200px;
+}
+
+.pillar {
+  padding-right: 64px;
+  border-right: 1px solid rgba(255,255,255,0.05);
+}
+.pillar:not(:first-child) { padding-left: 64px; padding-right: 64px; }
+.pillar:last-child { border-right: none; padding-right: 0; }
+
+.pillar-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  margin-bottom: 40px;
+  display: block;
+}
+
+.pillar-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 48px;
+  line-height: 0.95;
+  letter-spacing: 0.5px;
+  color: var(--white);
+  margin-bottom: 24px;
+}
+
+.pillar-body {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--dim2);
+}
+
+/* ── PROJECTS ── */
+#projects {
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 120px 56px;
+  background: #060910;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.project-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 40px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  max-width: 1200px;
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+  cursor: none;
+}
+
+.project-row:first-of-type { border-top: 1px solid rgba(255,255,255,0.04); }
+
+.project-row:hover .proj-name { color: var(--accent); }
+
+.proj-left { display: flex; align-items: baseline; gap: 40px; }
+
+.proj-idx {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 2px;
+  width: 28px;
+}
+
+.proj-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(36px, 5vw, 64px);
+  letter-spacing: 1px;
+  transition: color 0.3s;
+}
+
+.proj-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+  padding: 7px 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.proj-tag.active {
+  border-color: rgba(200,184,154,0.25);
+  color: var(--accent);
+}
+
+/* ── CONTACT ── */
+#contact {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 120px 56px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.contact-email {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(44px, 6vw, 88px);
+  letter-spacing: 1px;
+  color: var(--white);
+  text-decoration: none;
+  display: block;
+  margin-bottom: 40px;
+  transition: color 0.3s;
+  cursor: none;
+}
+.contact-email:hover { color: var(--accent); }
+
+.contact-note {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--dim2);
+  max-width: 400px;
+}
+
+/* ── FOOTER ── */
+footer {
+  padding: 28px 56px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(58,63,74,0.7);
+  text-transform: uppercase;
+}
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(28px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.9s ease, transform 0.9s ease;
+}
+.reveal.visible { opacity:1; transform:translateY(0); }
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+
+@media (max-width: 768px) {
+  nav { padding: 24px; }
+  .nav-links { display: none; }
+  #hero, #statement, #pillars, #projects, #contact { padding-left: 24px !important; padding-right: 24px !important; }
+  .pillars-grid { grid-template-columns: 1fr; }
+  .pillar { border-right: none !important; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 0 0 48px !important; margin-bottom: 48px; }
+  .pillar:last-child { border-bottom: none; margin-bottom: 0; }
+  .hero-bottom { flex-direction: column; gap: 32px; align-items: flex-start; }
+  footer { padding: 24px; flex-direction: column; gap: 10px; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<nav>
+  <a href="#" class="nav-logo">Linku</a>
+  <ul class="nav-links">
+    <li><a href="#pillars">Work</a></li>
+    <li><a href="#projects">Projects</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <canvas id="hero-canvas"></canvas>
+  <div class="hero-content">
+    <h1 class="hero-title">
+      We make<br>
+      what<br>
+      <span class="ghost">comes next.</span>
+    </h1>
+    <div class="hero-bottom">
+      <p class="hero-sub">
+        At the boundary of artificial intelligence<br>
+        and the physical world.
+      </p>
+      <div class="hero-line">Scroll</div>
+    </div>
+  </div>
+</section>
+
+<!-- STATEMENT -->
+<section id="statement">
+  <div>
+    <h2 class="statement-title reveal">
+      We don't wait<br>
+      for the future.<br>
+      <span class="muted">We build it.</span>
+    </h2>
+    <div class="statement-rule reveal reveal-delay-1"></div>
+    <p class="statement-body reveal reveal-delay-2">
+      Linku operates at the intersection of intelligence and matter —
+      writing systems, designing machines, and building things
+      that didn't exist before.
+    </p>
+  </div>
+</section>
+
+<!-- PILLARS -->
+<section id="pillars">
+  <p class="section-label reveal">What we do</p>
+  <div class="pillars-grid">
+    <div class="pillar reveal">
+      <span class="pillar-num">01</span>
+      <h3 class="pillar-title">Artificial<br>Intelligence</h3>
+      <p class="pillar-body">
+        Systems that think, map, and connect.
+        We build AI tools that extend human understanding
+        beyond what any single mind can hold.
+      </p>
+    </div>
+    <div class="pillar reveal reveal-delay-1">
+      <span class="pillar-num">02</span>
+      <h3 class="pillar-title">Engineering</h3>
+      <p class="pillar-body">
+        From software architecture to physical systems.
+        We design and build across every layer —
+        digital, mechanical, industrial.
+      </p>
+    </div>
+    <div class="pillar reveal reveal-delay-2">
+      <span class="pillar-num">03</span>
+      <h3 class="pillar-title">Manu-<br>facturing</h3>
+      <p class="pillar-body">
+        Intelligence that moves matter.
+        AI-integrated manufacturing —
+        building real things for the real world.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECTS -->
+<section id="projects">
+  <p class="section-label reveal">Projects</p>
+  <a class="project-row reveal" href="https://nexus.linku.tech" target="_blank">
+    <div class="proj-left">
+      <span class="proj-idx">01</span>
+      <span class="proj-name">Nexus</span>
+    </div>
+    <span class="proj-tag active">Live</span>
+  </a>
+  <div class="project-row reveal reveal-delay-1" style="opacity:0.22;pointer-events:none;">
+    <div class="proj-left">
+      <span class="proj-idx">—</span>
+      <span class="proj-name" style="font-size:clamp(24px,3vw,42px);color:var(--dim);">More to come</span>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <p class="section-label reveal">Contact</p>
+  <a class="contact-email reveal" href="mailto:info@linku.tech">info@linku.tech</a>
+  <p class="contact-note reveal reveal-delay-1">
+    If you have something worth building,<br>we want to hear about it.
+  </p>
+</section>
+
+<footer>
+  <span class="footer-text">© 2026 Linku Tech</span>
+  <span class="footer-text">linku.tech</span>
+</footer>
+
+<script>
+// Cursor
+const cur = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+let mx=0, my=0, rx=0, ry=0;
+
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cur.style.left = mx+'px'; cur.style.top = my+'px';
+});
+
+(function animRing(){
+  rx += (mx-rx)*0.1; ry += (my-ry)*0.1;
+  ring.style.left = rx+'px'; ring.style.top = ry+'px';
+  requestAnimationFrame(animRing);
+})();
+
+document.querySelectorAll('a').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    ring.style.width='44px'; ring.style.height='44px';
+    ring.style.borderColor='rgba(200,184,154,0.5)';
+  });
+  el.addEventListener('mouseleave', () => {
+    ring.style.width='30px'; ring.style.height='30px';
+    ring.style.borderColor='rgba(200,184,154,0.25)';
+  });
+});
+
+// Hero canvas
+const canvas = document.getElementById('hero-canvas');
+const ctx = canvas.getContext('2d');
+
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Sparse star particles
+const stars = Array.from({length:120}, () => ({
+  x: Math.random()*innerWidth,
+  y: Math.random()*innerHeight,
+  r: Math.random()*0.9+0.1,
+  o: Math.random()*0.3+0.05,
+  vx: (Math.random()-0.5)*0.08,
+  vy: (Math.random()-0.5)*0.08
+}));
+
+// Constellation nodes
+const nodes = Array.from({length:14}, () => ({
+  x: Math.random()*innerWidth,
+  y: Math.random()*innerHeight,
+  vx: (Math.random()-0.5)*0.18,
+  vy: (Math.random()-0.5)*0.18,
+  r: Math.random()*1.5+0.8
+}));
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Ambient glow blobs
+  const g1 = ctx.createRadialGradient(canvas.width*0.7, canvas.height*0.3, 0, canvas.width*0.7, canvas.height*0.3, canvas.width*0.4);
+  g1.addColorStop(0,'rgba(20,30,60,0.18)');
+  g1.addColorStop(1,'rgba(3,6,14,0)');
+  ctx.fillStyle = g1;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  const g2 = ctx.createRadialGradient(canvas.width*0.2, canvas.height*0.7, 0, canvas.width*0.2, canvas.height*0.7, canvas.width*0.3);
+  g2.addColorStop(0,'rgba(30,20,50,0.12)');
+  g2.addColorStop(1,'rgba(3,6,14,0)');
+  ctx.fillStyle = g2;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Connections
+  for(let i=0;i<nodes.length;i++){
+    for(let j=i+1;j<nodes.length;j++){
+      const dx=nodes[i].x-nodes[j].x, dy=nodes[i].y-nodes[j].y;
+      const d=Math.sqrt(dx*dx+dy*dy);
+      if(d<260){
+        ctx.beginPath();
+        ctx.strokeStyle=`rgba(200,184,154,${(1-d/260)*0.07})`;
+        ctx.lineWidth=0.4;
+        ctx.moveTo(nodes[i].x,nodes[i].y);
+        ctx.lineTo(nodes[j].x,nodes[j].y);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Nodes
+  nodes.forEach(n=>{
+    n.x+=n.vx; n.y+=n.vy;
+    if(n.x<0||n.x>canvas.width) n.vx*=-1;
+    if(n.y<0||n.y>canvas.height) n.vy*=-1;
+    ctx.beginPath();
+    ctx.arc(n.x,n.y,n.r,0,Math.PI*2);
+    ctx.fillStyle='rgba(200,184,154,0.4)';
+    ctx.fill();
+  });
+
+  // Stars
+  stars.forEach(s=>{
+    s.x+=s.vx; s.y+=s.vy;
+    if(s.x<0) s.x=canvas.width;
+    if(s.x>canvas.width) s.x=0;
+    if(s.y<0) s.y=canvas.height;
+    if(s.y>canvas.height) s.y=0;
+    ctx.beginPath();
+    ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,255,255,${s.o})`;
+    ctx.fill();
+  });
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+// Scroll reveal
+const obs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting) e.target.classList.add('visible');
+  });
+}, {threshold:0.12});
+
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+</script>
+</body>
+</html>
