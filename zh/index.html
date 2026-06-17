@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LINKU — Intelligence, made physical.</title>
+  <title>LINKU — 讓智慧，化為實體</title>
   <meta name="description"
-    content="LINKU builds systems where intelligence meets the physical world — edge AI, control, and small intelligent machines that perceive, decide, and act in reality." />
+    content="LINKU 打造智慧與物理世界交會的系統——邊緣 AI、控制，以及能感知、決策、行動的小型智慧機器。" />
 
   <!-- Canonical + language alternates -->
-  <link rel="canonical" href="https://linku.tech/" />
+  <link rel="canonical" href="https://linku.tech/zh/" />
   <link rel="alternate" hreflang="en" href="https://linku.tech/" />
   <link rel="alternate" hreflang="zh-Hant" href="https://linku.tech/zh/" />
   <link rel="alternate" hreflang="ja" href="https://linku.tech/ja/" />
@@ -17,18 +17,23 @@
 
   <!-- Open Graph -->
   <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://linku.tech/" />
+  <meta property="og:url" content="https://linku.tech/zh/" />
   <meta property="og:site_name" content="LINKU" />
-  <meta property="og:title" content="LINKU — Intelligence, made physical." />
-  <meta property="og:description"
-    content="At the boundary of artificial intelligence and the physical world." />
-  <meta property="og:locale" content="en_US" />
-  <meta property="og:locale:alternate" content="zh_TW" />
+  <meta property="og:title" content="LINKU — 讓智慧，化為實體" />
+  <meta property="og:description" content="在人工智慧與物理世界交會之處。" />
+  <meta property="og:locale" content="zh_TW" />
+  <meta property="og:locale:alternate" content="en_US" />
   <meta property="og:locale:alternate" content="ja_JP" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <!-- Noto Sans TC, subset to only the Han characters that appear on this page.
+       If you add/change Traditional-Chinese copy, update the &text= string below;
+       any missing glyph quietly falls back to the system CJK font (no broken layout). -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&text=讓智慧化為實體。在人工智慧與物理世界交會之處。捲動。理念。讓智慧與物質交會的系統——在真實世界中感知、決策、行動的機器。專案。未完待續。一套運行於智慧與基礎設施邊緣的線上系統。我們做什麼。邊緣智慧。機器中的心智。控制與系統。決策，化為運動。智慧機器。會思考的物質。聯絡。一起打造吧。如果你也有一個橫跨智慧與物理世界的構想，歡迎來信。&display=swap"
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
@@ -43,14 +48,14 @@
     <a href="#top" class="brand">LINKU</a>
     <div class="nav-right">
       <ul class="nav-links">
-        <li><a href="#work">Work</a></li>
-        <li><a href="#projects">Projects</a></li>
-        <li><a href="#contact">Contact</a></li>
+        <li><a href="#work">理念</a></li>
+        <li><a href="#projects">專案</a></li>
+        <li><a href="#contact">聯絡</a></li>
       </ul>
       <div class="lang-switch" aria-label="Language">
-        <a href="/" class="active" hreflang="en" aria-current="page">EN</a>
+        <a href="/" hreflang="en" lang="en">EN</a>
         <span class="sep" aria-hidden="true">·</span>
-        <a href="/zh/" hreflang="zh-Hant" lang="zh-Hant">繁</a>
+        <a href="/zh/" class="active" hreflang="zh-Hant" aria-current="page">繁</a>
         <span class="sep" aria-hidden="true">·</span>
         <a href="/ja/" hreflang="ja" lang="ja">日</a>
       </div>
@@ -62,32 +67,29 @@
     <!-- HERO -->
     <header class="hero section-pad" data-screen-label="Hero">
       <h1 class="hero-title">
-        <span class="l1">Intelligence,</span><br />
-        <span class="l2">made</span><br />
-        <span class="l3">physical.</span>
+        <span class="l1">讓智慧，</span><br />
+        <span class="l2">化為</span><br />
+        <span class="l3">實體。</span>
       </h1>
-      <p class="hero-sub">At the boundary of artificial intelligence and the physical world.</p>
+      <p class="hero-sub">在人工智慧與物理世界交會之處。</p>
       <div class="scroll-cue">
         <span class="bar"></span>
-        <span>Scroll</span>
+        <span>捲動</span>
       </div>
     </header>
 
     <!-- STATEMENT -->
     <span id="statement" aria-hidden="true"></span>
     <section class="statement section-pad" id="work" data-screen-label="Statement">
-      <div class="label reveal">Statement</div>
-      <p class="statement-body">
-        <span class="sg">We build systems where </span><span class="sg em">intelligence</span><span class="sg"> meets </span><span class="sg em">matter</span><span class="sg"> — machines that perceive, decide, and act in
-          the </span><span class="sg em">real world</span><span class="sg">.</span>
-      </p>
+      <div class="label reveal">理念</div>
+      <p class="statement-body"><span class="sg">讓</span><span class="sg em">智慧</span><span class="sg">與</span><span class="sg em">物質</span><span class="sg">交會的系統——在</span><span class="sg em">真實世界</span><span class="sg">中感知、決策、行動的機器。</span></p>
     </section>
 
     <!-- PROJECTS -->
     <section class="projects section-pad" id="projects" data-screen-label="Projects">
       <div class="projects-head">
-        <div class="label reveal">Projects</div>
-        <div class="more reveal">More to come</div>
+        <div class="label reveal">專案</div>
+        <div class="more reveal">未完待續</div>
       </div>
       <div class="project-list">
         <a class="project reveal" href="https://nodus.linku.tech" target="_blank" rel="noopener" data-cursor="hover">
@@ -98,34 +100,34 @@
             </div>
             <span class="project-arrow">&#8599;</span>
           </div>
-          <p class="project-meta">A live system operating at the edge of intelligence and infrastructure.</p>
+          <p class="project-meta">一套運行於智慧與基礎設施邊緣的線上系統。</p>
         </a>
       </div>
     </section>
 
     <!-- PILLARS / WHAT WE DO -->
     <section class="pillars section-pad" id="pillars" data-screen-label="What We Do">
-      <div class="label reveal">What We Do</div>
+      <div class="label reveal">我們做什麼</div>
       <div class="pillar-list">
         <div class="pillar reveal">
           <div class="pillar-num">01</div>
           <div>
-            <h3 class="pillar-title">Edge Intelligence</h3>
-            <p class="pillar-tag">Mind in the machine.</p>
+            <h3 class="pillar-title">邊緣智慧</h3>
+            <p class="pillar-tag">機器中的心智。</p>
           </div>
         </div>
         <div class="pillar reveal">
           <div class="pillar-num">02</div>
           <div>
-            <h3 class="pillar-title">Control &amp; Systems</h3>
-            <p class="pillar-tag">Decision into motion.</p>
+            <h3 class="pillar-title">控制與系統</h3>
+            <p class="pillar-tag">決策，化為運動。</p>
           </div>
         </div>
         <div class="pillar reveal">
           <div class="pillar-num">03</div>
           <div>
-            <h3 class="pillar-title">Intelligent Machines</h3>
-            <p class="pillar-tag">Matter that thinks.</p>
+            <h3 class="pillar-title">智慧機器</h3>
+            <p class="pillar-tag">會思考的物質。</p>
           </div>
         </div>
       </div>
@@ -133,16 +135,15 @@
 
     <!-- CONTACT -->
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
-      <div class="label reveal">Contact</div>
-      <h2 class="contact-big reveal">Let's build.</h2>
-      <p class="contact-note reveal">Have something worth building at the boundary of intelligence and the physical
-        world? We'd love to hear from you.</p>
+      <div class="label reveal">聯絡</div>
+      <h2 class="contact-big reveal">一起打造吧。</h2>
+      <p class="contact-note reveal">如果你也有一個橫跨智慧與物理世界的構想，歡迎來信。</p>
       <div>
         <a class="contact-mail reveal" href="mailto:info@linku.tech" data-cursor="hover">info@linku.tech</a>
       </div>
       <footer>
         <span>LINKU &copy; 2026</span>
-        <span>Artificial Intelligence &times; Physical World</span>
+        <span>人工智慧 &times; 物理世界</span>
       </footer>
     </section>
 
