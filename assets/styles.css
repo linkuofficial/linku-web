@@ -380,6 +380,28 @@ nav {
   color: var(--cream);
 }
 
+.statement-fact {
+  margin-top: 32px;
+  font-family: var(--body);
+  font-weight: 300;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  letter-spacing: 0.02em;
+  color: rgba(232, 230, 224, 0.55);
+  max-width: 58ch;
+}
+
+.pillar-desc {
+  margin-top: 10px;
+  font-family: var(--body);
+  font-weight: 300;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.42);
+  max-width: 46ch;
+}
+
 /* ---------- Projects ---------- */
 .projects {
   padding-top: clamp(100px, 14vh, 180px);
@@ -730,6 +752,16 @@ html[lang="ja"] .contact-note {
   letter-spacing: 0.04em;
   line-height: 1.9;
   max-width: 50ch;
+}
+
+html[lang="zh-Hant"] .statement-fact,
+html[lang="ja"] .statement-fact,
+html[lang="zh-Hant"] .pillar-desc,
+html[lang="ja"] .pillar-desc {
+  font-family: var(--cjk-body);
+  letter-spacing: 0.04em;
+  line-height: 1.9;
+  max-width: 52ch;
 }
 
 html[lang="zh-Hant"] .pillar-tag,
