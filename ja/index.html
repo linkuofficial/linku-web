@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
   <!-- 日本語コピーは AI による校正済み。公開前にネイティブによる最終確認を推奨します。 -->
   <title>LINKU — 知能に、かたちをあたえる</title>
   <meta name="description"
@@ -25,6 +28,16 @@
   <meta property="og:locale" content="ja_JP" />
   <meta property="og:locale:alternate" content="en_US" />
   <meta property="og:locale:alternate" content="zh_TW" />
+  <meta property="og:image" content="https://linku.tech/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="LINKU — 知能に、かたちをあたえる" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="LINKU — 知能に、かたちをあたえる" />
+  <meta name="twitter:description" content="人工知能と物理世界の境界で。" />
+  <meta name="twitter:image" content="https://linku.tech/assets/og-image.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -38,6 +51,39 @@
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
+
+  <!-- Structured data: Organization + WebSite (entity disambiguation for search) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://linku.tech/#org",
+        "name": "LINKU",
+        "alternateName": ["Linku Tech", "LINKU Tech"],
+        "url": "https://linku.tech/",
+        "logo": "https://linku.tech/assets/favicon.svg",
+        "image": "https://linku.tech/assets/og-image.png",
+        "email": "info@linku.tech",
+        "description": "LINKUは知能と物理世界が出会うシステムをつくります——エッジAI、制御、そして感知し、判断し、行動する小型の知能機械。",
+        "knowsAbout": ["エッジAI", "エッジコンピューティング", "制御システム", "ロボティクス", "組み込み知能", "ハードウェア・ソフトウェア協調設計"],
+        "sameAs": [
+          "https://github.com/linkuofficial",
+          "https://nodus.linku.tech"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://linku.tech/#website",
+        "url": "https://linku.tech/",
+        "name": "LINKU",
+        "inLanguage": "ja",
+        "publisher": { "@id": "https://linku.tech/#org" }
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>

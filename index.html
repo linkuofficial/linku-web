@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
   <title>LINKU — Intelligence, made physical.</title>
   <meta name="description"
     content="LINKU builds systems where intelligence meets the physical world — edge AI, control, and small intelligent machines that perceive, decide, and act in reality." />
@@ -25,6 +28,16 @@
   <meta property="og:locale" content="en_US" />
   <meta property="og:locale:alternate" content="zh_TW" />
   <meta property="og:locale:alternate" content="ja_JP" />
+  <meta property="og:image" content="https://linku.tech/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="LINKU — Intelligence, made physical." />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="LINKU — Intelligence, made physical." />
+  <meta name="twitter:description" content="At the boundary of artificial intelligence and the physical world." />
+  <meta name="twitter:image" content="https://linku.tech/assets/og-image.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -32,6 +45,39 @@
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
+
+  <!-- Structured data: Organization + WebSite (entity disambiguation for search) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://linku.tech/#org",
+        "name": "LINKU",
+        "alternateName": ["Linku Tech", "LINKU Tech"],
+        "url": "https://linku.tech/",
+        "logo": "https://linku.tech/assets/favicon.svg",
+        "image": "https://linku.tech/assets/og-image.png",
+        "email": "info@linku.tech",
+        "description": "LINKU builds systems where intelligence meets the physical world — edge AI, control, and small intelligent machines that perceive, decide, and act in reality.",
+        "knowsAbout": ["Edge AI", "Edge computing", "Control systems", "Robotics", "Embedded intelligence", "Hardware-software co-design"],
+        "sameAs": [
+          "https://github.com/linkuofficial",
+          "https://nodus.linku.tech"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://linku.tech/#website",
+        "url": "https://linku.tech/",
+        "name": "LINKU",
+        "inLanguage": "en",
+        "publisher": { "@id": "https://linku.tech/#org" }
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>

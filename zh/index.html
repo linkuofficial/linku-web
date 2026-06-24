@@ -4,6 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
   <title>LINKU — 讓智慧，化為實體</title>
   <meta name="description"
     content="LINKU 打造智慧與物理世界交會的系統——邊緣 AI、控制，以及能感知、決策、行動的小型智慧機器。" />
@@ -24,6 +27,16 @@
   <meta property="og:locale" content="zh_TW" />
   <meta property="og:locale:alternate" content="en_US" />
   <meta property="og:locale:alternate" content="ja_JP" />
+  <meta property="og:image" content="https://linku.tech/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="LINKU — 讓智慧，化為實體" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="LINKU — 讓智慧，化為實體" />
+  <meta name="twitter:description" content="在人工智慧與物理世界交會之處。" />
+  <meta name="twitter:image" content="https://linku.tech/assets/og-image.png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -37,6 +50,39 @@
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
+
+  <!-- Structured data: Organization + WebSite (entity disambiguation for search) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://linku.tech/#org",
+        "name": "LINKU",
+        "alternateName": ["Linku Tech", "LINKU Tech"],
+        "url": "https://linku.tech/",
+        "logo": "https://linku.tech/assets/favicon.svg",
+        "image": "https://linku.tech/assets/og-image.png",
+        "email": "info@linku.tech",
+        "description": "LINKU 打造智慧與物理世界交會的系統——邊緣 AI、控制，以及能感知、決策、行動的小型智慧機器。",
+        "knowsAbout": ["邊緣 AI", "邊緣運算", "控制系統", "機器人技術", "嵌入式智慧", "軟硬協同設計"],
+        "sameAs": [
+          "https://github.com/linkuofficial",
+          "https://nodus.linku.tech"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://linku.tech/#website",
+        "url": "https://linku.tech/",
+        "name": "LINKU",
+        "inLanguage": "zh-Hant",
+        "publisher": { "@id": "https://linku.tech/#org" }
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>
