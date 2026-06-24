@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+
+  <title>About — LINKU (Linku Tech)</title>
+  <meta name="description"
+    content="LINKU (Linku Tech) is an early-stage technology venture building edge AI, control systems, and small intelligent machines through software–hardware co-design. Founded 2026, based in Taipei, Taiwan." />
+
+  <!-- Canonical + language alternates -->
+  <link rel="canonical" href="https://linku.tech/about/" />
+  <link rel="alternate" hreflang="en" href="https://linku.tech/about/" />
+  <link rel="alternate" hreflang="zh-Hant" href="https://linku.tech/zh/about/" />
+  <link rel="alternate" hreflang="ja" href="https://linku.tech/ja/about/" />
+  <link rel="alternate" hreflang="x-default" href="https://linku.tech/about/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://linku.tech/about/" />
+  <meta property="og:site_name" content="LINKU" />
+  <meta property="og:title" content="About — LINKU (Linku Tech)" />
+  <meta property="og:description"
+    content="An early-stage technology venture at the boundary of AI and the physical world — edge AI, control, and intelligent machines via software–hardware co-design." />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="zh_TW" />
+  <meta property="og:locale:alternate" content="ja_JP" />
+  <meta property="og:image" content="https://linku.tech/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="LINKU — Intelligence, made physical." />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="About — LINKU (Linku Tech)" />
+  <meta name="twitter:description"
+    content="An early-stage technology venture building edge AI and small intelligent machines through software–hardware co-design." />
+  <meta name="twitter:image" content="https://linku.tech/assets/og-image.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="/assets/styles.css" />
+
+  <!-- Structured data: Organization (enriched) + AboutPage -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://linku.tech/#org",
+        "name": "LINKU",
+        "alternateName": ["Linku Tech", "LINKU Tech"],
+        "url": "https://linku.tech/",
+        "logo": "https://linku.tech/assets/favicon.svg",
+        "image": "https://linku.tech/assets/og-image.png",
+        "email": "info@linku.tech",
+        "description": "LINKU is an early-stage technology venture building systems where intelligence meets the physical world — edge AI, control, and small, customizable intelligent machines that perceive, decide, and act in reality. Its method is software–hardware co-design: pairing low-cost, off-the-shelf hardware with compact, scene-optimized edge models so the whole system outperforms conventional approaches on comparable hardware.",
+        "disambiguatingDescription": "An early-stage technology venture focused on edge AI, control, and intelligent machines built through software–hardware co-design.",
+        "slogan": "Intelligence, made physical.",
+        "foundingDate": "2026",
+        "founder": { "@type": "Person", "name": "Riku" },
+        "foundingLocation": { "@type": "Place", "name": "Taipei, Taiwan" },
+        "location": {
+          "@type": "Place",
+          "address": { "@type": "PostalAddress", "addressLocality": "Taipei", "addressCountry": "TW" }
+        },
+        "knowsAbout": ["Edge AI", "Edge computing", "Control systems", "Robotics", "Embedded intelligence", "Hardware-software co-design"],
+        "sameAs": [
+          "https://github.com/linkuofficial",
+          "https://nodus.linku.tech"
+        ]
+      },
+      {
+        "@type": "AboutPage",
+        "@id": "https://linku.tech/about/#webpage",
+        "url": "https://linku.tech/about/",
+        "name": "About — LINKU",
+        "inLanguage": "en",
+        "about": { "@id": "https://linku.tech/#org" },
+        "isPartOf": { "@id": "https://linku.tech/#website" }
+      }
+    ]
+  }
+  </script>
+</head>
+
+<body>
+  <canvas id="particles"></canvas>
+  <div class="cursor-ring"></div>
+  <div class="cursor-dot"></div>
+
+  <nav>
+    <a href="/" class="brand">LINKU</a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/#projects">Projects</a></li>
+        <li><a href="/#contact">Contact</a></li>
+      </ul>
+      <div class="lang-switch" aria-label="Language">
+        <a href="/about/" class="active" hreflang="en" aria-current="page">EN</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="/zh/about/" hreflang="zh-Hant" lang="zh-Hant">繁</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="/ja/about/" hreflang="ja" lang="ja">日</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap" id="top">
+
+    <header class="about-head section-pad" data-screen-label="About">
+      <div class="label reveal">About</div>
+      <h1 class="about-title reveal">About LINKU</h1>
+      <p class="about-lead reveal">An early-stage technology venture at the boundary of artificial intelligence and the physical world.</p>
+    </header>
+
+    <section class="about section-pad">
+      <p class="about-body reveal">LINKU is an early-stage technology venture working at the boundary of artificial intelligence and the physical world. We build systems that don't just compute, but perceive, decide, and act in reality.</p>
+      <p class="about-body reveal">Our focus is edge AI, control systems, and small, customizable intelligent machines. Our method is software–hardware co-design: we pair low-cost, off-the-shelf hardware with compact, scene-optimized edge models, so the complete system outperforms conventional setups running on comparable hardware. The aim is practical, deployable intelligence for specialized real-world settings — not bigger models, but smarter whole systems.</p>
+      <p class="about-body reveal">Our first public project is Nodus, a live, interactive knowledge graph at the edge of intelligence and infrastructure. More is on the way.</p>
+    </section>
+
+    <section class="about-details section-pad">
+      <div class="label reveal">Details</div>
+      <dl class="about-facts reveal">
+        <div><dt>Founded</dt><dd>2026</dd></div>
+        <div><dt>Based in</dt><dd>Taipei, Taiwan</dd></div>
+        <div><dt>Founder</dt><dd>Riku</dd></div>
+        <div><dt>Focus</dt><dd>Edge AI · Control &amp; systems · Intelligent machines</dd></div>
+        <div><dt>Project</dt><dd><a href="https://nodus.linku.tech" target="_blank" rel="noopener" data-cursor="hover">Nodus &#8599;</a></dd></div>
+        <div><dt>Contact</dt><dd><a href="mailto:info@linku.tech" data-cursor="hover">info@linku.tech</a></dd></div>
+      </dl>
+    </section>
+
+    <section class="contact section-pad" id="contact" data-screen-label="Contact">
+      <h2 class="contact-big reveal">Let's build.</h2>
+      <p class="contact-note reveal">Have something worth building at the boundary of intelligence and the physical world? We'd love to hear from you.</p>
+      <div>
+        <a class="contact-mail reveal" href="mailto:info@linku.tech" data-cursor="hover">info@linku.tech</a>
+      </div>
+      <footer>
+        <span>LINKU &copy; 2026</span>
+        <span>Artificial Intelligence &times; Physical World</span>
+      </footer>
+    </section>
+
+  </div>
+
+  <script src="/assets/main.js"></script>
+
+</body>
+
+</html>

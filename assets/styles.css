@@ -402,6 +402,99 @@ nav {
   max-width: 46ch;
 }
 
+/* ---------- About page ---------- */
+.about-head {
+  padding-top: clamp(120px, 20vh, 240px);
+  padding-bottom: clamp(36px, 5vh, 72px);
+}
+
+.about-title {
+  font-family: var(--display);
+  font-size: clamp(3rem, 9vw, 6.5rem);
+  line-height: 0.92;
+  letter-spacing: 0.01em;
+  color: var(--cream);
+  margin-top: 24px;
+}
+
+.about-lead {
+  margin-top: 28px;
+  font-weight: 300;
+  font-size: clamp(1.2rem, 2.6vw, 1.8rem);
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: rgba(232, 230, 224, 0.85);
+  max-width: 30ch;
+}
+
+.about {
+  padding-top: clamp(36px, 5vh, 72px);
+  padding-bottom: clamp(60px, 9vh, 120px);
+  max-width: 1400px;
+}
+
+.about-body {
+  font-weight: 300;
+  font-size: clamp(1rem, 1.4vw, 1.15rem);
+  line-height: 1.9;
+  letter-spacing: 0.01em;
+  color: rgba(232, 230, 224, 0.62);
+  max-width: 62ch;
+}
+
+.about-body + .about-body {
+  margin-top: 28px;
+}
+
+.about-details {
+  padding-top: clamp(36px, 5vh, 72px);
+  padding-bottom: clamp(80px, 12vh, 160px);
+}
+
+.about-facts {
+  margin-top: 40px;
+  max-width: 620px;
+}
+
+.about-facts > div {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 24px;
+  align-items: baseline;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+
+.about-facts > div:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.about-facts dt {
+  font-size: 0.65rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.about-facts dd {
+  font-size: 0.95rem;
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  color: var(--cream);
+}
+
+.about-facts a {
+  color: var(--cream);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+  transition: border-color 0.3s;
+}
+
+.about-facts a:hover {
+  border-color: var(--cream);
+}
+
 /* ---------- Projects ---------- */
 .projects {
   padding-top: clamp(100px, 14vh, 180px);
@@ -762,6 +855,26 @@ html[lang="ja"] .pillar-desc {
   letter-spacing: 0.04em;
   line-height: 1.9;
   max-width: 52ch;
+}
+
+html[lang="zh-Hant"] .about-title,
+html[lang="ja"] .about-title {
+  font-family: var(--cjk-display);
+  font-weight: 500;
+  font-size: clamp(2.4rem, 7vw, 5rem);
+  line-height: 1.18;
+  letter-spacing: 0.04em;
+}
+
+html[lang="zh-Hant"] .about-lead,
+html[lang="ja"] .about-lead,
+html[lang="zh-Hant"] .about-body,
+html[lang="ja"] .about-body,
+html[lang="zh-Hant"] .about-facts dd,
+html[lang="ja"] .about-facts dd {
+  font-family: var(--cjk-body);
+  letter-spacing: 0.03em;
+  line-height: 1.9;
 }
 
 html[lang="zh-Hant"] .pillar-tag,
