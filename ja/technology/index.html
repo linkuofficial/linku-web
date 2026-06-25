@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+  <!-- 日本語コピーは AI による翻訳。公開前にネイティブによる確認を推奨します。 -->
+
+  <title>技術 — LINKU</title>
+  <meta name="description"
+    content="LINKUの技術：ハードウェアとソフトウェアの協調設計により、AIと制御を小さな機械に統合します——現場のために設計し、その場で動作し、時とともに進化します。" />
+
+  <!-- Canonical + language alternates -->
+  <link rel="canonical" href="https://linku.tech/ja/technology/" />
+  <link rel="alternate" hreflang="en" href="https://linku.tech/technology/" />
+  <link rel="alternate" hreflang="zh-Hant" href="https://linku.tech/zh/technology/" />
+  <link rel="alternate" hreflang="ja" href="https://linku.tech/ja/technology/" />
+  <link rel="alternate" hreflang="x-default" href="https://linku.tech/technology/" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://linku.tech/ja/technology/" />
+  <meta property="og:site_name" content="LINKU" />
+  <meta property="og:title" content="技術 — LINKU" />
+  <meta property="og:description"
+    content="ハードウェアとソフトウェアの協調設計により、AIと制御を小さな機械に統合します——現場のために設計し、その場で動作し、時とともに進化します。" />
+  <meta property="og:locale" content="ja_JP" />
+  <meta property="og:locale:alternate" content="en_US" />
+  <meta property="og:locale:alternate" content="zh_TW" />
+  <meta property="og:image" content="https://linku.tech/assets/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="LINKU — 知能に、かたちをあたえる" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="技術 — LINKU" />
+  <meta name="twitter:description" content="AIと制御を小さな機械に統合する、ハードウェアとソフトウェアの協調設計。" />
+  <meta name="twitter:image" content="https://linku.tech/assets/og-image.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <!-- Noto Sans JP, subset to the kana/kanji used on this page.
+       If you add/change copy, update the &text= string below; missing glyphs
+       quietly fall back to the system CJK font (no broken layout). -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&text=ホーム。プロジェクト。概要。お問い合わせ。技術。課題に、ちょうどよい知能を。LINKUは、AIと制御を小さな機械に統合します——現場のために設計し、その場で動作し、時とともに進化します。専用設計。あらゆるシステムを、単一の課題のために設計します。センサーからモデルまで現場に合わせて調整し、実際のニーズと制約に寄り添い、変化に応じて調整を続けます。その場で動作。演算と判断は機器の上でその場で完結します。クラウドへの往復も、通信の待ち時間もありません。応答は即時で、オフラインでも安定して動作し、データは手元に留まります——即時性とセキュリティが求められる現場での要となる価値です。設計による価値。性能は、ハードウェアの仕様だけで決まるものではありません。ハードウェアとソフトウェアの協調設計により、ソフトウェアがハードウェアの力を引き出し、適切な投資から仕様を超える性能を生み出します。私たちが届けるのは、本質的な価値です。使うほど賢く。配備後も、システムは現実の現場から学び続け、判断は日々精緻になり、環境への適合も深まります。動かすほどに、価値は高まります。つくろう。より賢くしたい現場の課題、あるいは協業のご相談があれば、お気軽にご連絡ください。人工知能 × 物理世界。&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="/assets/styles.css" />
+
+  <!-- Structured data: Organization + WebPage -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://linku.tech/#org",
+        "name": "LINKU",
+        "alternateName": ["Linku Tech", "LINKU Tech"],
+        "url": "https://linku.tech/",
+        "logo": "https://linku.tech/assets/favicon.svg",
+        "image": "https://linku.tech/assets/og-image.png",
+        "email": "info@linku.tech",
+        "description": "LINKUは、エッジAI・制御システム、そして感知し、判断し、行動する小型でカスタマイズ可能な知能機械をつくる初期段階のプロジェクトです。そのアプローチはハードウェアとソフトウェアの協調設計：シーンへ最適化した小型エッジモデルとハードウェアを協調させ、同等ハードウェアの一般的な手法を上回る全体性能を実現します。",
+        "disambiguatingDescription": "エッジAI・制御・知能機械に注力し、ハードウェアとソフトウェアの協調設計で開発を行う初期段階のテクノロジープロジェクト。",
+        "slogan": "知能に、かたちをあたえる",
+        "foundingDate": "2026",
+        "founder": { "@type": "Person", "name": "Riku" },
+        "foundingLocation": { "@type": "Place", "name": "Taipei, Taiwan" },
+        "location": {
+          "@type": "Place",
+          "address": { "@type": "PostalAddress", "addressLocality": "Taipei", "addressCountry": "TW" }
+        },
+        "knowsAbout": ["エッジAI", "エッジコンピューティング", "制御システム", "ロボティクス", "組み込み知能", "ハードウェア・ソフトウェア協調設計"],
+        "sameAs": [
+          "https://github.com/linkuofficial",
+          "https://neblux.linku.tech"
+        ]
+      },
+      {
+        "@type": "WebPage",
+        "@id": "https://linku.tech/ja/technology/#webpage",
+        "url": "https://linku.tech/ja/technology/",
+        "name": "技術 — LINKU",
+        "inLanguage": "ja",
+        "about": { "@id": "https://linku.tech/#org" },
+        "isPartOf": { "@id": "https://linku.tech/#website" }
+      }
+    ]
+  }
+  </script>
+</head>
+
+<body>
+  <canvas id="particles"></canvas>
+  <div class="cursor-ring"></div>
+  <div class="cursor-dot"></div>
+
+  <nav>
+    <a href="/ja/" class="brand">LINKU</a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="/ja/">ホーム</a></li>
+        <li><a href="/ja/#projects">プロジェクト</a></li>
+        <li><a href="/ja/about/">概要</a></li>
+        <li><a href="/ja/#contact">お問い合わせ</a></li>
+      </ul>
+      <div class="lang-switch" aria-label="Language">
+        <a href="/technology/" hreflang="en" lang="en">EN</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="/zh/technology/" hreflang="zh-Hant" lang="zh-Hant">繁</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="/ja/technology/" class="active" hreflang="ja" aria-current="page">日</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="wrap" id="top">
+
+    <header class="tech-hero section-pad" data-screen-label="Technology">
+      <div class="label reveal">技術</div>
+      <h1 class="tech-hero-title reveal">課題に、ちょうどよい知能を。</h1>
+      <p class="tech-hero-sub reveal">LINKUは、AIと制御を小さな機械に統合します——現場のために設計し、その場で動作し、時とともに進化します。</p>
+    </header>
+
+    <section class="tech section-pad">
+      <div class="tech-item reveal">
+        <h2 class="tech-title">専用設計</h2>
+        <p class="tech-desc">あらゆるシステムを、単一の課題のために設計します。センサーからモデルまで現場に合わせて調整し、実際のニーズと制約に寄り添い、変化に応じて調整を続けます。</p>
+      </div>
+      <div class="tech-item reveal">
+        <h2 class="tech-title">その場で動作</h2>
+        <p class="tech-desc">演算と判断は機器の上でその場で完結します。クラウドへの往復も、通信の待ち時間もありません。応答は即時で、オフラインでも安定して動作し、データは手元に留まります——即時性とセキュリティが求められる現場での要となる価値です。</p>
+      </div>
+      <div class="tech-item reveal">
+        <h2 class="tech-title">設計による価値</h2>
+        <p class="tech-desc">性能は、ハードウェアの仕様だけで決まるものではありません。ハードウェアとソフトウェアの協調設計により、ソフトウェアがハードウェアの力を引き出し、適切な投資から仕様を超える性能を生み出します。私たちが届けるのは、本質的な価値です。</p>
+      </div>
+      <div class="tech-item reveal">
+        <h2 class="tech-title">使うほど賢く</h2>
+        <p class="tech-desc">配備後も、システムは現実の現場から学び続け、判断は日々精緻になり、環境への適合も深まります。動かすほどに、価値は高まります。</p>
+      </div>
+    </section>
+
+    <section class="contact section-pad" id="contact" data-screen-label="Contact">
+      <div class="label reveal">お問い合わせ</div>
+      <h2 class="contact-big reveal">つくろう。</h2>
+      <p class="contact-note reveal">より賢くしたい現場の課題、あるいは協業のご相談があれば、お気軽にご連絡ください。</p>
+      <div>
+        <a class="contact-mail reveal" href="mailto:info@linku.tech" data-cursor="hover">info@linku.tech</a>
+      </div>
+      <footer>
+        <span>LINKU &copy; 2026</span>
+        <span>人工知能 &times; 物理世界</span>
+      </footer>
+    </section>
+
+  </div>
+
+  <script src="/assets/main.js"></script>
+
+</body>
+
+</html>

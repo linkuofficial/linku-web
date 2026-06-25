@@ -49,4 +49,28 @@
     <xhtml:link rel="alternate" hreflang="ja" href="https://linku.tech/ja/about/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://linku.tech/about/" />
   </url>
+  <url>
+    <loc>https://linku.tech/technology/</loc>
+    <lastmod>2026-06-26</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://linku.tech/technology/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://linku.tech/zh/technology/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://linku.tech/ja/technology/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://linku.tech/technology/" />
+  </url>
+  <url>
+    <loc>https://linku.tech/zh/technology/</loc>
+    <lastmod>2026-06-26</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://linku.tech/technology/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://linku.tech/zh/technology/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://linku.tech/ja/technology/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://linku.tech/technology/" />
+  </url>
+  <url>
+    <loc>https://linku.tech/ja/technology/</loc>
+    <lastmod>2026-06-26</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://linku.tech/technology/" />
+    <xhtml:link rel="alternate" hreflang="zh-Hant" href="https://linku.tech/zh/technology/" />
+    <xhtml:link rel="alternate" hreflang="ja" href="https://linku.tech/ja/technology/" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://linku.tech/technology/" />
+  </url>
 </urlset>
