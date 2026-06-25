@@ -54,6 +54,31 @@ body {
   pointer-events: none;
 }
 
+/* ---------- Ambient layers over the canvas, under content ----------
+   ::before  restrained cool glow behind the hero (the one accent).
+   ::after   film grain — a static SVG-noise tile for "expensive" texture. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(42vmax 42vmax at 50% 40%,
+      rgba(96, 142, 194, 0.10), rgba(96, 142, 194, 0) 70%);
+  mix-blend-mode: screen;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 /* ---------- Custom dot cursor ---------- */
 .cursor-dot,
 .cursor-ring {
@@ -137,6 +162,8 @@ nav {
   letter-spacing: 0.5em;
   color: var(--cream);
   text-decoration: none;
+  display: inline-block;
+  transition: transform 0.3s var(--reveal-ease);
 }
 
 .nav-links {
@@ -153,8 +180,9 @@ nav {
   text-transform: uppercase;
   color: var(--muted);
   text-decoration: none;
-  transition: color 0.3s ease;
+  transition: color 0.3s ease, transform 0.3s var(--reveal-ease);
   position: relative;
+  display: inline-block;
 }
 
 .nav-links a::after {
@@ -243,6 +271,31 @@ nav {
 .hero-title .l3 {
   /* half-lit: readable but dimmer than l1/l2, keeps the fade-out layering */
   color: rgba(232, 230, 224, 0.7);
+}
+
+/* Masked line-by-line rise on load (text stays in the DOM for SEO). */
+@keyframes lineRise {
+  from {
+    clip-path: inset(0 0 105% 0);
+    transform: translateY(0.32em);
+  }
+
+  to {
+    clip-path: inset(0 0 -8% 0);
+    transform: none;
+  }
+}
+
+.hero-title .l1 {
+  animation: lineRise 0.95s var(--reveal-ease) 0.15s both;
+}
+
+.hero-title .l2 {
+  animation: lineRise 0.95s var(--reveal-ease) 0.28s both;
+}
+
+.hero-title .l3 {
+  animation: lineRise 0.95s var(--reveal-ease) 0.41s both;
 }
 
 .hero-sub {
@@ -495,6 +548,99 @@ nav {
   border-color: var(--cream);
 }
 
+/* About: narrative (left) + facts (right) as two columns on wider screens */
+.about-cols {
+  max-width: 1400px;
+  padding-top: clamp(36px, 5vh, 72px);
+  padding-bottom: clamp(80px, 12vh, 160px);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(40px, 6vw, 88px);
+  align-items: start;
+}
+
+.about-cols > .about,
+.about-cols > .about-details {
+  padding: 0;
+  max-width: none;
+}
+
+@media (min-width: 860px) {
+  .about-cols {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+}
+
+/* ---------- Technology page ---------- */
+.tech-hero {
+  padding-top: clamp(120px, 20vh, 240px);
+  padding-bottom: clamp(40px, 6vh, 80px);
+}
+
+.tech-hero-title {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(2.2rem, 5vw, 3.6rem);
+  line-height: 1.04;
+  letter-spacing: 0.01em;
+  color: var(--cream);
+  margin-top: 24px;
+  max-width: 18ch;
+}
+
+.tech-hero-sub {
+  margin-top: 28px;
+  font-weight: 300;
+  font-size: clamp(1rem, 1.6vw, 1.25rem);
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  color: rgba(232, 230, 224, 0.72);
+  max-width: 52ch;
+}
+
+.tech {
+  padding-bottom: clamp(100px, 14vh, 180px);
+  max-width: 1400px;
+}
+
+.tech-item {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px clamp(40px, 6vw, 96px);
+  border-top: 1px solid var(--line);
+  padding: clamp(32px, 5vw, 56px) 0;
+}
+
+.tech-item:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.tech-title {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--cream);
+}
+
+.tech-desc {
+  font-family: var(--body);
+  font-weight: 300;
+  font-size: clamp(0.95rem, 1.3vw, 1.08rem);
+  line-height: 1.9;
+  letter-spacing: 0.01em;
+  color: rgba(232, 230, 224, 0.62);
+  max-width: 60ch;
+}
+
+@media (min-width: 860px) {
+  .tech-item {
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 2fr);
+    align-items: baseline;
+  }
+}
+
 /* ---------- Projects ---------- */
 .projects {
   padding-top: clamp(100px, 14vh, 180px);
@@ -702,7 +848,7 @@ nav {
   letter-spacing: 0.05em;
   color: rgba(255, 255, 255, 0.7);
   text-decoration: none;
-  transition: color 0.3s ease;
+  transition: color 0.3s ease, transform 0.3s var(--reveal-ease);
 }
 
 .contact-mail:hover {
@@ -745,7 +891,10 @@ footer {
   }
 
   .scroll-cue,
-  .hero-sub {
+  .hero-sub,
+  .hero-title .l1,
+  .hero-title .l2,
+  .hero-title .l3 {
     animation: none;
   }
 
@@ -875,6 +1024,33 @@ html[lang="ja"] .about-facts dd {
   font-family: var(--cjk-body);
   letter-spacing: 0.03em;
   line-height: 1.9;
+}
+
+html[lang="zh-Hant"] .tech-hero-title,
+html[lang="ja"] .tech-hero-title {
+  font-family: var(--cjk-display);
+  font-weight: 500;
+  font-size: clamp(1.9rem, 4.4vw, 3rem);
+  line-height: 1.28;
+  letter-spacing: 0.03em;
+}
+
+html[lang="zh-Hant"] .tech-title,
+html[lang="ja"] .tech-title {
+  font-family: var(--cjk-display);
+  font-weight: 500;
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  line-height: 1.3;
+  letter-spacing: 0.03em;
+}
+
+html[lang="zh-Hant"] .tech-hero-sub,
+html[lang="ja"] .tech-hero-sub,
+html[lang="zh-Hant"] .tech-desc,
+html[lang="ja"] .tech-desc {
+  font-family: var(--cjk-body);
+  letter-spacing: 0.03em;
+  line-height: 1.95;
 }
 
 html[lang="zh-Hant"] .pillar-tag,
