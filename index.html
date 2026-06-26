@@ -5,6 +5,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- First-visit language routing: send visitors to their language; an explicit choice (stored) always wins. en-pages only, so /zh/ and /ja/ stay crawlable. -->
+  <script>(function(){try{var K='linku_lang',s=localStorage.getItem(K),t=s;if(!t){var L=navigator.languages||[navigator.language||'en'];for(var i=0;i<L.length;i++){var l=(L[i]||'').toLowerCase();if(l.indexOf('zh')===0){t='zh';break}if(l.indexOf('ja')===0){t='ja';break}if(l.indexOf('en')===0){t='en';break}}}if(!t||t==='en')return;location.replace('/'+t+location.pathname)}catch(e){}})();</script>
+
   <!-- Favicon -->
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
   <title>LINKU — Intelligence, made physical.</title>
@@ -99,10 +102,8 @@
     <div class="nav-right">
       <ul class="nav-links">
         <li><a href="#work">Work</a></li>
-        <li><a href="#projects">Projects</a></li>
         <li><a href="/technology/">Technology</a></li>
         <li><a href="/about/">About</a></li>
-        <li><a href="#contact">Contact</a></li>
       </ul>
       <div class="lang-switch" aria-label="Language">
         <a href="/" class="active" hreflang="en" aria-current="page">EN</a>
@@ -123,7 +124,7 @@
         <span class="l2">made</span><br />
         <span class="l3">physical.</span>
       </h1>
-      <p class="hero-sub">Edge AI, control systems, and small, customizable intelligent machines.</p>
+      <p class="hero-sub">LINKU builds small, intelligent machines that perceive, decide, and act in the real world.</p>
       <div class="scroll-cue">
         <span class="bar"></span>
         <span>Scroll</span>
@@ -138,27 +139,8 @@
         <span class="sg">We build systems where </span><span class="sg em">intelligence</span><span class="sg"> meets </span><span class="sg em">matter</span><span class="sg"> — machines that perceive, decide, and act in
           the </span><span class="sg em">real world</span><span class="sg">.</span>
       </p>
-      <p class="statement-fact reveal">LINKU is an early-stage venture building edge AI, control systems, and small, customizable intelligent machines that perceive, decide, and act in the real world. Our approach is software–hardware co-design: pairing compact, scene-optimized edge models with the hardware so the whole system outperforms conventional approaches on comparable hardware.</p>
-    </section>
-
-    <!-- PROJECTS -->
-    <section class="projects section-pad" id="projects" data-screen-label="Projects">
-      <div class="projects-head">
-        <div class="label reveal">Projects</div>
-        <div class="more reveal">More to come</div>
-      </div>
-      <div class="project-list">
-        <a class="project reveal" href="https://neblux.linku.tech" target="_blank" rel="noopener" data-cursor="hover">
-          <div class="project-row">
-            <div class="project-name-wrap">
-              <span class="project-name">Neblux</span>
-              <span class="badge"><span class="dot"></span>Live</span>
-            </div>
-            <span class="project-arrow">&#8599;</span>
-          </div>
-          <p class="project-meta">An interactive, cross-domain knowledge graph — see how ideas across fields connect.</p>
-        </a>
-      </div>
+      <p class="statement-fact reveal">We pursue practical, deployable intelligence — not bigger models, but smarter whole systems.</p>
+      <a class="more-link reveal" href="/about/" data-cursor="hover">About LINKU<span class="arrow">&#8594;</span></a>
     </section>
 
     <!-- PILLARS / WHAT WE DO -->
@@ -170,7 +152,6 @@
           <div>
             <h3 class="pillar-title">Edge Intelligence</h3>
             <p class="pillar-tag">Mind in the machine.</p>
-            <p class="pillar-desc">AI models optimized to run directly on edge hardware.</p>
           </div>
         </div>
         <div class="pillar reveal">
@@ -178,7 +159,6 @@
           <div>
             <h3 class="pillar-title">Control &amp; Systems</h3>
             <p class="pillar-tag">Decision into motion.</p>
-            <p class="pillar-desc">Turning model decisions into reliable real-world actuation and control.</p>
           </div>
         </div>
         <div class="pillar reveal">
@@ -186,16 +166,16 @@
           <div>
             <h3 class="pillar-title">Intelligent Machines</h3>
             <p class="pillar-tag">Matter that thinks.</p>
-            <p class="pillar-desc">Small, customizable machines that sense, decide, and act on their own.</p>
           </div>
         </div>
       </div>
+      <a class="more-link reveal" href="/technology/" data-cursor="hover">Explore our technology<span class="arrow">&#8594;</span></a>
     </section>
 
     <!-- CONTACT -->
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
       <div class="label reveal">Contact</div>
-      <h2 class="contact-big reveal">Let's build.</h2>
+      <h2 class="contact-big reveal">Get in touch.</h2>
       <p class="contact-note reveal">Have something worth building at the boundary of intelligence and the physical
         world? We'd love to hear from you.</p>
       <div>
