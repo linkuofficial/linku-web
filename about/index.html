@@ -5,6 +5,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+  <!-- First-visit language routing: send visitors to their language; an explicit choice (stored) always wins. en-pages only, so /zh/ and /ja/ stay crawlable. -->
+  <script>(function(){try{var K='linku_lang',s=localStorage.getItem(K),t=s;if(!t){var L=navigator.languages||[navigator.language||'en'];for(var i=0;i<L.length;i++){var l=(L[i]||'').toLowerCase();if(l.indexOf('zh')===0){t='zh';break}if(l.indexOf('ja')===0){t='ja';break}if(l.indexOf('en')===0){t='en';break}}}if(!t||t==='en')return;location.replace('/'+t+location.pathname)}catch(e){}})();</script>
+
   <!-- Favicon -->
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
 
@@ -102,9 +105,7 @@
     <div class="nav-right">
       <ul class="nav-links">
         <li><a href="/">Home</a></li>
-        <li><a href="/#projects">Projects</a></li>
         <li><a href="/technology/">Technology</a></li>
-        <li><a href="/#contact">Contact</a></li>
       </ul>
       <div class="lang-switch" aria-label="Language">
         <a href="/about/" class="active" hreflang="en" aria-current="page">EN</a>
@@ -145,7 +146,7 @@
     </div>
 
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
-      <h2 class="contact-big reveal">Let's build.</h2>
+      <h2 class="contact-big reveal">Get in touch.</h2>
       <p class="contact-note reveal">Have something worth building at the boundary of intelligence and the physical world? We'd love to hear from you.</p>
       <div>
         <a class="contact-mail reveal" href="mailto:info@linku.tech" data-cursor="hover">info@linku.tech</a>

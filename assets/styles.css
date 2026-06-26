@@ -663,6 +663,34 @@ nav {
   text-transform: uppercase;
 }
 
+/* ---------- Section link (routes to a dedicated page) ---------- */
+.more-link {
+  display: inline-block;
+  margin-top: clamp(36px, 6vh, 72px);
+  font-family: var(--body);
+  font-weight: 400;
+  font-size: 0.7rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.more-link:hover {
+  color: var(--cream);
+}
+
+.more-link .arrow {
+  display: inline-block;
+  margin-left: 10px;
+  transition: transform 0.3s var(--reveal-ease);
+}
+
+.more-link:hover .arrow {
+  transform: translateX(5px);
+}
+
 .project-list {
   margin-top: clamp(48px, 8vh, 96px);
 }
@@ -825,7 +853,7 @@ nav {
 
 .contact-big {
   font-family: var(--display);
-  font-size: clamp(4rem, 9vw, var(--contact-max));
+  font-size: clamp(2.6rem, 5.5vw, 4.6rem);
   line-height: 0.84;
   color: var(--cream);
   margin-top: 40px;
@@ -964,7 +992,7 @@ html[lang="zh-Hant"] .contact-big,
 html[lang="ja"] .contact-big {
   font-family: var(--cjk-display);
   font-weight: 500;
-  font-size: clamp(3rem, 7vw, 5.5rem);
+  font-size: clamp(2rem, 4.2vw, 3.4rem);
   line-height: 1.06;
   letter-spacing: 0.04em;
 }
@@ -1062,6 +1090,13 @@ html[lang="ja"] .label,
 html[lang="zh-Hant"] .more,
 html[lang="ja"] .more {
   font-family: var(--cjk-body);
+}
+
+html[lang="zh-Hant"] .more-link,
+html[lang="ja"] .more-link {
+  font-family: var(--cjk-body);
+  text-transform: none;
+  letter-spacing: 0.12em;
 }
 
 /* ---------- Narrow screens: drop anchor nav, keep brand + language switch ---------- */

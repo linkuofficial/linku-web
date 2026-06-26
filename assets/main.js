@@ -6,6 +6,19 @@ window.__tweaks = {
   statementRise: 0.05
 };
 
+/* ---------- Remember language choice (drives first-visit auto-routing on the en pages) ---------- */
+(function () {
+  try {
+    document.querySelectorAll('.lang-switch a[hreflang]').forEach(function (a) {
+      a.addEventListener('click', function () {
+        var hl = (a.getAttribute('hreflang') || '').toLowerCase();
+        var v = hl.indexOf('zh') === 0 ? 'zh' : (hl.indexOf('ja') === 0 ? 'ja' : 'en');
+        try { localStorage.setItem('linku_lang', v); } catch (e) {}
+      });
+    });
+  } catch (e) {}
+})();
+
 /* ============================================================
    Brand field — particles coalescing into a structure.
    "Intelligence, made physical": scattered points (data) draw
