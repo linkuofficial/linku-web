@@ -1,0 +1,17 @@
+# 最小 CI（2026-07-06）：push / PR 觸發 scripts/check.mjs（零依賴，不裝任何套件）。
+# 檢查 canonical / hreflang / sitemap / Google Fonts &text= 子集；任一 FAIL → job 失敗。
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/check.mjs

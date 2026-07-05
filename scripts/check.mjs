@@ -1,0 +1,504 @@
+#!/usr/bin/env node
+/**
+ * check.mjs — linku.tech 靜態站機械化檢查（零依賴，Node 20+，僅用 node: 內建模組）
+ *
+ * 用法：node scripts/check.mjs   （任何工作目錄皆可，路徑以本檔位置推導）
+ * 任一 FAIL → exit code 1（供 CI 擋下，錯誤不再靜默上線）。
+ *
+ * 檢查項目：
+ *  1. 頁面掃描：對 repo 內所有 index.html —
+ *     - <html lang> 與檔案位置一致（zh/** → zh-Hant、ja/** → ja、其餘 → en）
+ *     - self-canonical：<link rel="canonical"> 與檔案位置推導的 URL 一致
+ *     - hreflang 組完整：恰為 en / zh-Hant / ja / x-default 四項、無重複
+ *     - 三語互指一致：hreflang 指到的每一頁都實際存在，且對方頁面的
+ *       hreflang 四項與本頁完全相同（互指成環）；本頁自身語言的 hreflang
+ *       必須等於自身 canonical
+ *  2. sitemap.xml 與實際頁面雙向一致（沒漏頁、也沒多出不存在的頁）
+ *  3. Google Fonts &text= 子集檢查（本站最容易踩的坑）：
+ *     - 依 <html lang> 決定字族：zh-Hant → Noto+Sans+TC、ja → Noto+Sans+JP
+ *     - 從 assets/styles.css 解析 html[lang="zh-Hant"] / html[lang="ja"] 區塊中
+ *       font-family 使用 var(--cjk-display|--cjk-body) 的選擇器，支援兩種形態：
+ *         html[lang=..] .class        （例：.hero-title）
+ *         html[lang=..] .class tag    （例：.about-facts dd、.nav-links a）
+ *       出現其他形態的選擇器時直接 FAIL（要求擴充本腳本，不靜默略過，避免漏檢）
+ *     - 從 HTML 抽出這些元素的可見文字（略過 <script>/<style> 內容與註解，
+ *       HTML 實體如 &copy;、&#8594; 先解碼），其中每個 CJK 字元都必須
+ *       包含在該頁 &text= 參數內；缺字即 FAIL 並列出缺哪些字、在哪個選擇器
+ *
+ * 檢查範圍與已知限制（改動站台結構前先讀）：
+ *  - 「CJK 字元」定義：漢字（U+4E00–9FFF、擴展A U+3400–4DBF、相容區 U+F900–FAFF）、
+ *    平假名/片假名（U+3040–30FF、U+31F0–31FF）、CJK 標點（U+3000–303F，含 。、「」）、
+ *    全形符號（U+FF00–FFEF，含 ，？：（）；）。em dash（——，U+2014）、中點（·，
+ *    U+00B7）、×（U+00D7）、箭頭（→ ↗）等「非 CJK 區段」的字元不納入檢查——
+ *    它們 fallback 的視覺差異小，納入會產生噪音。
+ *  - HTML 解析為簡化實作（堆疊式標籤解析），不處理 CSS 造成的不可見
+ *    （display:none 等）；本站目前無此情形。過度收集只會讓檢查偏嚴，不會漏檢。
+ *  - 站台網域寫死為 https://linku.tech（canonical 推導用）。
+ *  - CSS 選擇器解析僅支援上列兩種形態；若未來加入更複雜選擇器
+ *    （偽類、多層 combinator 等），本腳本會 FAIL 提示擴充，而非靜默跳過。
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, '..');
+const SITE = 'https://linku.tech';
+const HREFLANG_KEYS = ['en', 'zh-Hant', 'ja', 'x-default'];
+
+let passCount = 0;
+let failCount = 0;
+function pass(msg) { passCount++; console.log('[PASS] ' + msg); }
+function fail(msg) { failCount++; console.log('[FAIL] ' + msg); }
+
+// ---------- 通用工具 ----------
+
+function readText(file) {
+  return fs.readFileSync(file, 'utf8').replace(/^﻿/, '');
+}
+
+function relOf(file) {
+  return path.relative(ROOT, file).split(path.sep).join('/');
+}
+
+const NAMED_ENTITIES = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  copy: '©', times: '×', middot: '·', hellip: '…',
+  mdash: '—', ndash: '–', rarr: '→',
+};
+
+function decodeEntities(s) {
+  return s.replace(/&(#[xX]?[0-9a-fA-F]+|[a-zA-Z]+);/g, (all, body) => {
+    if (body[0] === '#') {
+      const code = (body[1] === 'x' || body[1] === 'X')
+        ? parseInt(body.slice(2), 16)
+        : parseInt(body.slice(1), 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : all;
+    }
+    return NAMED_ENTITIES[body.toLowerCase()] ?? all;
+  });
+}
+
+function isCJK(ch) {
+  const c = ch.codePointAt(0);
+  return (c >= 0x3000 && c <= 0x303F)   // CJK 標點（。、「」等）
+      || (c >= 0x3040 && c <= 0x30FF)   // 平假名・片假名
+      || (c >= 0x31F0 && c <= 0x31FF)   // 片假名語音擴展
+      || (c >= 0x3400 && c <= 0x4DBF)   // 漢字擴展 A
+      || (c >= 0x4E00 && c <= 0x9FFF)   // 漢字
+      || (c >= 0xF900 && c <= 0xFAFF)   // 相容漢字
+      || (c >= 0xFF00 && c <= 0xFFEF);  // 全形符號・半形片假名
+}
+
+// ---------- 頁面探索 ----------
+
+function findIndexHtml(dir, acc = []) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) {
+      if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+      findIndexHtml(path.join(dir, e.name), acc);
+    } else if (e.name === 'index.html') {
+      acc.push(path.join(dir, e.name));
+    }
+  }
+  return acc;
+}
+
+function urlOf(file) {
+  const relDir = path.relative(ROOT, path.dirname(file)).split(path.sep).join('/');
+  return relDir === '' ? SITE + '/' : SITE + '/' + relDir + '/';
+}
+
+function expectedLangOf(file) {
+  const rel = relOf(file);
+  if (rel === 'zh/index.html' || rel.startsWith('zh/')) return 'zh-Hant';
+  if (rel === 'ja/index.html' || rel.startsWith('ja/')) return 'ja';
+  return 'en';
+}
+
+// ---------- HTML 屬性 / <link> 解析（head 中繼資料用） ----------
+
+function attrsOfTag(tagStr) {
+  const attrs = {};
+  const inner = tagStr.replace(/^<[a-zA-Z][a-zA-Z0-9-]*/, '').replace(/\/?\s*>$/, '');
+  const re = /([a-zA-Z][a-zA-Z0-9:_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g;
+  for (const m of inner.matchAll(re)) {
+    attrs[m[1].toLowerCase()] = m[2] ?? m[3] ?? m[4] ?? '';
+  }
+  return attrs;
+}
+
+function parseHead(html) {
+  const links = [...html.matchAll(/<link\b[^>]*>/gi)].map((m) => attrsOfTag(m[0]));
+  const langMatch = html.match(/<html\b[^>]*\blang\s*=\s*"([^"]*)"/i);
+  const lang = langMatch ? langMatch[1] : null;
+  let canonical = null;
+  const alternates = new Map();
+  const duplicateKeys = [];
+  for (const a of links) {
+    const rel = (a.rel || '').toLowerCase();
+    if (rel === 'canonical') canonical = decodeEntities(a.href || '');
+    if (rel === 'alternate' && a.hreflang) {
+      const key = a.hreflang;
+      const href = decodeEntities(a.href || '');
+      if (alternates.has(key)) duplicateKeys.push(key);
+      alternates.set(key, href);
+    }
+  }
+  return { lang, canonical, alternates, duplicateKeys, links };
+}
+
+// ---------- HTML 樹解析（可見文字抽取用） ----------
+
+const VOID_ELEMENTS = new Set([
+  'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+  'link', 'meta', 'param', 'source', 'track', 'wbr',
+]);
+
+function parseHTMLTree(html) {
+  const root = { tag: '#root', attrs: {}, children: [] };
+  const stack = [root];
+  const top = () => stack[stack.length - 1];
+  let i = 0;
+  while (i < html.length) {
+    if (html[i] === '<') {
+      if (html.startsWith('<!--', i)) {
+        const end = html.indexOf('-->', i + 4);
+        i = end === -1 ? html.length : end + 3;
+      } else if (html.startsWith('<!', i)) {
+        const end = html.indexOf('>', i);
+        i = end === -1 ? html.length : end + 1;
+      } else if (html.startsWith('</', i)) {
+        const end = html.indexOf('>', i);
+        const name = html.slice(i + 2, end === -1 ? html.length : end).trim().toLowerCase();
+        for (let s = stack.length - 1; s >= 1; s--) {
+          if (stack[s].tag === name) { stack.length = s; break; }
+        }
+        i = end === -1 ? html.length : end + 1;
+      } else {
+        const end = html.indexOf('>', i);
+        if (end === -1) break;
+        const raw = html.slice(i + 1, end);
+        const selfClose = /\/\s*$/.test(raw);
+        const inner = selfClose ? raw.replace(/\/\s*$/, '') : raw;
+        const nameMatch = inner.match(/^([a-zA-Z][a-zA-Z0-9-]*)/);
+        if (!nameMatch) { i = end + 1; continue; }
+        const tag = nameMatch[1].toLowerCase();
+        const node = { tag, attrs: attrsOfTag('<' + inner + '>'), children: [] };
+        top().children.push(node);
+        i = end + 1;
+        if (tag === 'script' || tag === 'style') {
+          // raw-text 元素：內容不是可見文字，直接跳到結尾標籤
+          const rest = html.slice(i);
+          const m = rest.match(new RegExp('</' + tag + '\\s*>', 'i'));
+          i = m ? i + m.index + m[0].length : html.length;
+        } else if (!selfClose && !VOID_ELEMENTS.has(tag)) {
+          stack.push(node);
+        }
+      }
+    } else {
+      const next = html.indexOf('<', i);
+      const text = html.slice(i, next === -1 ? html.length : next);
+      if (text.trim()) top().children.push({ text });
+      i = next === -1 ? html.length : next;
+    }
+  }
+  return root;
+}
+
+function walk(node, cb) {
+  cb(node);
+  if (node.children) for (const c of node.children) walk(c, cb);
+}
+
+function hasClass(node, cls) {
+  return node.attrs && typeof node.attrs.class === 'string'
+    && node.attrs.class.split(/\s+/).includes(cls);
+}
+
+function textOf(node) {
+  const parts = [];
+  walk(node, (n) => { if (n.text !== undefined) parts.push(n.text); });
+  return decodeEntities(parts.join(''));
+}
+
+// ---------- CSS 解析：找出使用 CJK 字型的選擇器 ----------
+
+function extractCssRules(css) {
+  css = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = [];
+  let i = 0;
+  let buf = '';
+  while (i < css.length) {
+    const ch = css[i];
+    if (ch === '{') {
+      const selector = buf.trim();
+      buf = '';
+      let depth = 1;
+      let j = i + 1;
+      const start = j;
+      while (j < css.length && depth > 0) {
+        if (css[j] === '{') depth++;
+        else if (css[j] === '}') depth--;
+        j++;
+      }
+      const body = css.slice(start, j - 1);
+      if (selector.startsWith('@')) {
+        if (/^@(media|supports)\b/.test(selector)) rules.push(...extractCssRules(body));
+        // @keyframes 等其他 at-rule 與字型檢查無關，略過
+      } else {
+        rules.push({ selector, body });
+      }
+      i = j;
+    } else if (ch === '}') {
+      buf = '';
+      i++;
+    } else {
+      buf += ch;
+      i++;
+    }
+  }
+  return rules;
+}
+
+/**
+ * 回傳 { targets: [{cls, tag|null, desc}], errors: [string] }
+ * targets = 在指定 lang 下 font-family 使用 var(--cjk-*) 的元素選擇器
+ */
+function cjkTargetsForLang(cssRules, lang) {
+  const fontRuleRe = /font-family\s*:[^;]*var\(--cjk-(?:display|body)\)/;
+  const targets = new Map();
+  const errors = [];
+  const prefixRe = new RegExp('^html\\[lang="' + lang + '"\\]\\s+(.+)$');
+  for (const rule of cssRules) {
+    if (!fontRuleRe.test(rule.body)) continue;
+    for (const part of rule.selector.split(',').map((s) => s.trim())) {
+      const m = part.match(prefixRe);
+      if (!m) continue; // 其他語言或無關選擇器
+      const rest = m[1].trim();
+      let t = rest.match(/^\.([A-Za-z0-9_-]+)$/);
+      if (t) {
+        targets.set('.' + t[1], { cls: t[1], tag: null, desc: '.' + t[1] });
+        continue;
+      }
+      t = rest.match(/^\.([A-Za-z0-9_-]+)\s+([a-zA-Z][a-zA-Z0-9-]*)$/);
+      if (t) {
+        targets.set('.' + t[1] + ' ' + t[2], { cls: t[1], tag: t[2].toLowerCase(), desc: '.' + t[1] + ' ' + t[2] });
+        continue;
+      }
+      errors.push('styles.css 選擇器「' + part + '」形態不受支援，無法可靠判定檢查範圍；請擴充 scripts/check.mjs 的選擇器解析（不可靜默略過）');
+    }
+  }
+  return { targets: [...targets.values()], errors };
+}
+
+function matchElements(tree, target) {
+  const matched = [];
+  walk(tree, (n) => {
+    if (!hasClass(n, target.cls)) return;
+    if (!target.tag) {
+      matched.push(n);
+    } else {
+      walk(n, (d) => {
+        if (d !== n && d.tag === target.tag) matched.push(d);
+      });
+    }
+  });
+  return matched;
+}
+
+// ---------- &text= 抽取 ----------
+
+function fontSubsetOf(headLinks, familyToken) {
+  for (const a of headLinks) {
+    const href = decodeEntities(a.href || '');
+    if (!href.includes('fonts.googleapis.com')) continue;
+    if (!href.includes('family=' + familyToken)) continue;
+    const m = href.match(/[?&]text=([^&]*)/);
+    if (!m) return { linkFound: true, text: null };
+    let val = m[1];
+    try { val = decodeURIComponent(val); } catch { /* 保留原字串 */ }
+    return { linkFound: true, text: val };
+  }
+  return { linkFound: false, text: null };
+}
+
+// =============================================================
+// 主流程
+// =============================================================
+
+const pageFiles = findIndexHtml(ROOT).sort();
+if (pageFiles.length === 0) {
+  fail('repo 內找不到任何 index.html（掃描根目錄：' + ROOT + '）');
+}
+
+// 先全部解析（互指一致性需要跨頁比對）
+const pages = pageFiles.map((file) => {
+  const html = readText(file);
+  const head = parseHead(html);
+  return {
+    file,
+    rel: relOf(file),
+    url: urlOf(file),
+    expectedLang: expectedLangOf(file),
+    html,
+    ...head,
+  };
+});
+const pageByUrl = new Map(pages.map((p) => [p.url, p]));
+
+// ---------- 1. 頁面掃描：lang / canonical / hreflang ----------
+console.log('=== 1. 頁面掃描：lang / canonical / hreflang ===');
+
+for (const p of pages) {
+  const errs = [];
+
+  if (!p.lang) {
+    errs.push('<html> 缺少 lang 屬性');
+  } else if (p.lang !== p.expectedLang) {
+    errs.push('<html lang="' + p.lang + '"> 與檔案位置不符（預期 ' + p.expectedLang + '）');
+  }
+
+  if (!p.canonical) {
+    errs.push('缺少 <link rel="canonical">');
+  } else if (p.canonical !== p.url) {
+    errs.push('canonical 不是 self-canonical：頁面寫 ' + p.canonical + '，檔案位置推導為 ' + p.url);
+  }
+
+  const keys = [...p.alternates.keys()];
+  const missingKeys = HREFLANG_KEYS.filter((k) => !keys.includes(k));
+  const extraKeys = keys.filter((k) => !HREFLANG_KEYS.includes(k));
+  if (missingKeys.length) errs.push('hreflang 缺少：' + missingKeys.join('、'));
+  if (extraKeys.length) errs.push('hreflang 多出未知項：' + extraKeys.join('、'));
+  if (p.duplicateKeys.length) errs.push('hreflang 重複宣告：' + p.duplicateKeys.join('、'));
+
+  // 自身語言的 hreflang 必須等於自身 canonical（即自身 URL）
+  if (p.lang && HREFLANG_KEYS.includes(p.lang) && p.alternates.has(p.lang)) {
+    if (p.alternates.get(p.lang) !== p.url) {
+      errs.push('hreflang ' + p.lang + '（自身語言）指向 ' + p.alternates.get(p.lang) + '，應為 ' + p.url);
+    }
+  }
+
+  // 互指一致：每個 hreflang 目標頁要存在，且四項 hreflang 與本頁完全相同
+  for (const [key, href] of p.alternates) {
+    if (!HREFLANG_KEYS.includes(key)) continue;
+    const target = pageByUrl.get(href);
+    if (!target) {
+      errs.push('hreflang ' + key + ' 指向不存在的頁面：' + href);
+      continue;
+    }
+    if (key !== 'x-default' && target !== p) {
+      for (const k of HREFLANG_KEYS) {
+        const mine = p.alternates.get(k);
+        const theirs = target.alternates.get(k);
+        if (mine !== undefined && theirs !== undefined && mine !== theirs) {
+          errs.push('與 ' + target.rel + ' 互指不一致：hreflang ' + k + ' 本頁=' + mine + '、對方=' + theirs);
+        }
+      }
+    }
+  }
+
+  if (errs.length === 0) {
+    pass(p.rel + ' — lang=' + p.lang + '、self-canonical、hreflang 四項完整且互指一致');
+  } else {
+    for (const e of errs) fail(p.rel + ' — ' + e);
+  }
+}
+
+// ---------- 2. sitemap.xml 雙向一致 ----------
+console.log('');
+console.log('=== 2. sitemap.xml 與實際頁面雙向一致 ===');
+
+const sitemapPath = path.join(ROOT, 'sitemap.xml');
+if (!fs.existsSync(sitemapPath)) {
+  fail('找不到 sitemap.xml：' + sitemapPath);
+} else {
+  const sitemapXml = readText(sitemapPath);
+  const locs = [...sitemapXml.matchAll(/<loc>\s*([^<]+?)\s*<\/loc>/g)].map((m) => decodeEntities(m[1]));
+  const locSet = new Set(locs);
+  if (locs.length !== locSet.size) {
+    fail('sitemap.xml 有重複的 <loc>');
+  }
+  const missingInSitemap = pages.filter((p) => !locSet.has(p.url));
+  const extraInSitemap = [...locSet].filter((u) => !pageByUrl.has(u));
+  for (const p of missingInSitemap) fail('sitemap 漏頁：' + p.url + '（' + p.rel + '）');
+  for (const u of extraInSitemap) fail('sitemap 多出不存在的頁：' + u);
+  if (missingInSitemap.length === 0 && extraInSitemap.length === 0 && locs.length === locSet.size) {
+    pass('sitemap.xml 與實際頁面一致（共 ' + pages.length + ' 頁）');
+  }
+}
+
+// ---------- 3. Google Fonts &text= 子集檢查 ----------
+console.log('');
+console.log('=== 3. Google Fonts &text= 子集檢查（zh / ja 頁） ===');
+
+const stylesPath = path.join(ROOT, 'assets', 'styles.css');
+const FAMILY_BY_LANG = { 'zh-Hant': 'Noto+Sans+TC', 'ja': 'Noto+Sans+JP' };
+
+if (!fs.existsSync(stylesPath)) {
+  fail('找不到 assets/styles.css，無法判定 CJK 字型選擇器');
+} else {
+  const cssRules = extractCssRules(readText(stylesPath));
+  const targetsByLang = {};
+  for (const lang of Object.keys(FAMILY_BY_LANG)) {
+    const { targets, errors } = cjkTargetsForLang(cssRules, lang);
+    targetsByLang[lang] = targets;
+    for (const e of errors) fail('[' + lang + '] ' + e);
+    if (targets.length === 0) {
+      fail('styles.css 中找不到 html[lang="' + lang + '"] 的 CJK 字型選擇器（var(--cjk-*)），檢查無法進行');
+    }
+  }
+
+  for (const p of pages) {
+    const lang = p.lang && FAMILY_BY_LANG[p.lang] ? p.lang : (FAMILY_BY_LANG[p.expectedLang] ? p.expectedLang : null);
+    if (!lang) continue; // en 頁不需 CJK 子集
+    const family = FAMILY_BY_LANG[lang];
+    const targets = targetsByLang[lang] || [];
+    if (targets.length === 0) continue; // 上面已 FAIL
+
+    const subset = fontSubsetOf(p.links, family);
+    if (!subset.linkFound) {
+      fail(p.rel + ' — 找不到 ' + family.replace(/\+/g, ' ') + ' 的 Google Fonts <link>');
+      continue;
+    }
+    if (subset.text === null) {
+      fail(p.rel + ' — ' + family.replace(/\+/g, ' ') + ' 的 <link> 沒有 &text= 參數（本站慣例為子集載入）');
+      continue;
+    }
+    const subsetChars = new Set([...subset.text]);
+
+    // 從 HTML 抽出 CJK 字型元素的可見文字
+    const tree = parseHTMLTree(p.html);
+    const required = new Map(); // char -> Set(selector desc)
+    for (const t of targets) {
+      for (const el of matchElements(tree, t)) {
+        for (const ch of textOf(el)) {
+          if (!isCJK(ch)) continue;
+          if (!required.has(ch)) required.set(ch, new Set());
+          required.get(ch).add(t.desc);
+        }
+      }
+    }
+
+    const missing = [...required.entries()].filter(([ch]) => !subsetChars.has(ch));
+    if (missing.length === 0) {
+      pass(p.rel + ' — 頁面 CJK 字型元素共用 ' + required.size + ' 個相異 CJK 字元，全數包含於 &text=');
+    } else {
+      const detail = missing
+        .map(([ch, descs]) => '「' + ch + '」(U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0') + '，出現於 ' + [...descs].join('、') + ')')
+        .join('；');
+      fail(p.rel + ' — &text= 缺 ' + missing.length + ' 字：' + detail);
+    }
+  }
+}
+
+// ---------- 總結 ----------
+console.log('');
+console.log('=== 總結 ===');
+console.log('通過 ' + passCount + ' 項，失敗 ' + failCount + ' 項。');
+if (failCount > 0) {
+  console.log('存在 FAIL，exit code 1。');
+  process.exitCode = 1;
+}
