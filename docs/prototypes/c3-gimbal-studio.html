@@ -1,0 +1,563 @@
+<!doctype html>
+<!-- LINKU rendering-upgrade P1b prototype C3：軸環機芯・攝影棚級重建
+     回應 2026-07-07「C2 廉價感」檢討——完整渲染管線示範：
+     HDR 場景（studio 環境光＋GGX 風格反射＋SDF 烘焙頂點 AO）
+     → MSAA → bright pass → 3 級 bloom 金字塔 → ACES 合成（調色/vignette/grain/dither）。
+     幾何：溝槽異型斷面雙環＋一體化軸承座＋縫隙漏光懸浮核心。
+     僅供裁決示意，不進版控。需要 WebGL2＋float color buffer。#still 靜態快照。 -->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Prototype C3 — Gimbal Studio 軸環機芯・攝影棚級</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;background:#0a0a0a;overflow:hidden}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .hero{position:fixed;left:clamp(28px,6vw,96px);top:50%;transform:translateY(-50%);pointer-events:none;z-index:2}
+  .hero .kicker{font-family:'Space Grotesk',sans-serif;font-weight:400;font-size:10px;letter-spacing:.42em;text-transform:uppercase;color:rgba(232,230,224,.34);margin:0 0 26px;display:flex;align-items:center;gap:14px}
+  .hero .kicker::before{content:'';width:28px;height:1px;background:rgba(232,230,224,.22)}
+  .hero h1{font-family:'Bebas Neue',sans-serif;font-weight:400;color:#e8e6e0;font-size:clamp(56px,11vw,180px);line-height:.82;margin:0;letter-spacing:.01em;text-shadow:0 2px 60px rgba(0,0,0,.55)}
+  .hero h1 .dim{color:rgba(232,230,224,.7)}
+  .hero p{font-family:'Space Grotesk',sans-serif;font-weight:300;color:rgba(232,230,224,.42);font-size:13px;letter-spacing:.05em;margin:34px 0 0;max-width:32ch;line-height:1.75}
+  .tag{position:fixed;left:clamp(28px,6vw,96px);top:26px;font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:.35em;color:#6a6a6a;text-transform:uppercase;z-index:2}
+  .hint{position:fixed;left:clamp(28px,6vw,96px);bottom:14px;font-family:'Space Grotesk',sans-serif;font-size:10px;letter-spacing:.2em;color:#555;z-index:2}
+  .fps{position:fixed;right:16px;bottom:12px;font:10px/1.6 Consolas,monospace;color:#555;z-index:2;text-align:right}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="tag">Prototype C3 — Gimbal Studio 軸環機芯</div>
+<div class="hero">
+  <div class="kicker">Edge Intelligence · Control · Machines</div>
+  <h1>Intelligence,<br>made<br><span class="dim">physical.</span></h1>
+  <p>Studio 光照＋烘焙 AO＋bloom 金字塔＋ACES 分級。溝槽斷面雙環、一體化軸承座、縫隙漏光的懸浮核心。</p>
+</div>
+<div class="hint">移動滑鼠＝視角傾斜</div>
+<div class="fps" id="fps"></div>
+<script>
+(() => {
+  const cv = document.getElementById('c');
+  const fpsEl = document.getElementById('fps');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const gl = cv.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false, preserveDrawingBuffer: true });
+  if (!gl) { fpsEl.textContent = 'WebGL2 unavailable'; return; }
+  const extF = gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float');
+  if (!extF) { fpsEl.textContent = 'float color buffer unavailable'; return; }
+
+  /* ================================ Shaders ================================ */
+  const SCENE_VS = `#version 300 es
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNrm;
+layout(location=2) in float aAO;
+layout(location=3) in float aType;
+layout(location=4) in float aRnd;
+uniform mat4 uProj; uniform mat3 uRot; uniform vec3 uLoc;
+out vec3 vN; out vec3 vP; out vec3 vView; out float vAO; out float vType; out float vRnd;
+void main(){
+  vec3 p = uRot * (aPos + uLoc);
+  vP = p;
+  vView = p + vec3(0.68, -0.05, -3.65);
+  vN = uRot * aNrm; vAO = aAO; vType = aType; vRnd = aRnd;
+  gl_Position = uProj * vec4(vView, 1.0);
+}`;
+
+  const SCENE_FS = `#version 300 es
+precision highp float;
+in vec3 vN; in vec3 vP; in vec3 vView; in float vAO; in float vType; in float vRnd;
+uniform float uT;
+out vec4 o;
+
+// 分析性攝影棚環境：主奶光（左上）＋鋼藍補光（右）＋頂部輪廓光
+vec3 env(vec3 d, float ex){
+  vec3 c = vec3(0.016, 0.019, 0.027);
+  c += vec3(1.00, 0.95, 0.86) * 2.7 * pow(max(dot(d, normalize(vec3(-0.52, 0.70, -0.44))), 0.), ex);
+  c += vec3(0.40, 0.56, 0.90) * 1.15 * pow(max(dot(d, normalize(vec3(0.86, -0.06, 0.30))), 0.), ex * 1.5);
+  c += vec3(0.90, 0.95, 1.00) * 1.5 * pow(max(dot(d, normalize(vec3(0.05, 0.97, 0.12))), 0.), ex * 3.2);
+  return c;
+}
+
+void main(){
+  vec3 N = normalize(vN);
+  vec3 V = normalize(-vView);
+  float t = vType;
+
+  // 自發光核心（HDR，交給 bloom）
+  if (t > 2.5){
+    float th = 0.75 + 0.25 * sin(uT * 0.8 + vRnd * 6.2831);
+    o = vec4(vec3(1.0, 0.80, 0.52) * 2.25 * th, 1.0);
+    return;
+  }
+
+  // 材質參數（type 0 環身 / 1 削角稜面 / 2 核心殼板 / 4 軸承座）
+  vec3 albedo = t < 0.5 ? vec3(0.040, 0.040, 0.043)
+              : t < 1.5 ? vec3(0.055, 0.056, 0.060)
+              : t < 2.5 ? vec3(0.020, 0.020, 0.024)
+              :           vec3(0.032, 0.032, 0.035);
+  float rough = t < 0.5 ? 0.40 : t < 1.5 ? 0.20 : t < 2.5 ? 0.13 : 0.5;
+  rough += (vRnd - 0.5) * 0.06;
+
+  vec3 R = reflect(-V, N);
+  float ndv = max(dot(N, V), 0.);
+  float fr = 0.06 + 0.94 * pow(1. - ndv, 5.);
+  float ex = mix(64., 6., rough);
+
+  vec3 col = albedo * env(N, 2.1) * vAO;
+  col += env(R, ex) * mix(0.06, 0.9, fr) * (t > 0.5 && t < 1.5 ? 0.60 : 0.42) * (0.35 + 0.65 * vAO);
+
+  // 核心暖光外溢（假點光源）＋殼板內面收更多
+  float dl = max(dot(N, -normalize(vP)), 0.);
+  float spill = 0.55 / (0.18 + dot(vP, vP) * 2.2);
+  col += vec3(1.0, 0.82, 0.55) * dl * spill * mix(1.0, vAO, 0.45);
+
+  // 深度霧：遠端融進背景，避免「貼在黑紙上」
+  float fog = smoothstep(2.4, 5.4, -vView.z);
+  col = mix(col, vec3(0.030), fog * 0.55);
+  o = vec4(col, 1.0);
+}`;
+
+  const QUAD_VS = `#version 300 es
+layout(location=0) in vec2 p; out vec2 vUv;
+void main(){ vUv = p * 0.5 + 0.5; gl_Position = vec4(p, 0., 1.); }`;
+
+  const BRIGHT_FS = `#version 300 es
+precision highp float; in vec2 vUv; out vec4 o; uniform sampler2D uTex;
+void main(){
+  vec3 c = texture(uTex, vUv).rgb;
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  o = vec4(c * smoothstep(1.05, 2.1, l), 1.0);
+}`;
+
+  const BLUR_FS = `#version 300 es
+precision highp float; in vec2 vUv; out vec4 o;
+uniform sampler2D uTex; uniform vec2 uDir;
+void main(){
+  vec3 c = texture(uTex, vUv).rgb * 0.227027;
+  vec2 off1 = uDir * 1.3846154, off2 = uDir * 3.2307692;
+  c += texture(uTex, vUv + off1).rgb * 0.3162162;
+  c += texture(uTex, vUv - off1).rgb * 0.3162162;
+  c += texture(uTex, vUv + off2).rgb * 0.0702703;
+  c += texture(uTex, vUv - off2).rgb * 0.0702703;
+  o = vec4(c, 1.0);
+}`;
+
+  const COMP_FS = `#version 300 es
+precision highp float; in vec2 vUv; out vec4 o;
+uniform sampler2D uScene; uniform sampler2D uB0; uniform sampler2D uB1; uniform sampler2D uB2;
+uniform float uT; uniform vec2 uRes;
+float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+vec3 aces(vec3 x){ return clamp(x * (2.51 * x + 0.03) / (x * (2.43 * x + 0.59) + 0.14), 0., 1.); }
+void main(){
+  vec3 c = texture(uScene, vUv).rgb;
+  c += texture(uB0, vUv).rgb * 0.42 + texture(uB1, vUv).rgb * 0.55 + texture(uB2, vUv).rgb * 0.50;
+
+  // 舞台微光：物件後方一層極淡暖暈，把它「放進空間」
+  vec2 q = vUv - vec2(0.66, 0.47);
+  q.x *= uRes.x / uRes.y;
+  c += vec3(0.055, 0.047, 0.038) * exp(-dot(q, q) * 3.2);
+
+  c = aces(c * 0.92);
+  c = pow(c, vec3(1.06));                                  // 沉一點的暗部
+  c += vec3(0.004, 0.007, 0.014) * (1. - c);               // 暗部藍移（底片感）
+  vec2 v = vUv * 2. - 1.;
+  c *= 1. - 0.30 * dot(v * 0.62, v * 0.62);                // vignette
+  c += (h(gl_FragCoord.xy + fract(uT) * 7.) - 0.5) * 0.010; // grain＋dither
+  o = vec4(c, 1.0);
+}`;
+
+  function sh(type, src){
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    return s;
+  }
+  function prog(vs, fs){
+    const p = gl.createProgram();
+    gl.attachShader(p, sh(gl.VERTEX_SHADER, vs));
+    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++){ const inf = gl.getActiveUniform(p, i); u[inf.name] = gl.getUniformLocation(p, inf.name); }
+    return { p, u };
+  }
+  const P = {
+    scene: prog(SCENE_VS, SCENE_FS),
+    bright: prog(QUAD_VS, BRIGHT_FS),
+    blur: prog(QUAD_VS, BLUR_FS),
+    comp: prog(QUAD_VS, COMP_FS),
+  };
+
+  /* ================================ 幾何 ================================ */
+  const pos = [], nrm = [], typ = [], rnd = [];
+  function tri(a, b, c, type, r){
+    const ux = b[0]-a[0], uy = b[1]-a[1], uz = b[2]-a[2];
+    const vx = c[0]-a[0], vy = c[1]-a[1], vz = c[2]-a[2];
+    let nx = uy*vz-uz*vy, ny = uz*vx-ux*vz, nz = ux*vy-uy*vx;
+    const l = Math.hypot(nx, ny, nz) || 1; nx/=l; ny/=l; nz/=l;
+    [a, b, c].forEach(p => { pos.push(p[0], p[1], p[2]); nrm.push(nx, ny, nz); typ.push(type); rnd.push(r); });
+  }
+  function quadOut(a, b, c, d, ref, type, r){
+    const ux = b[0]-a[0], uy = b[1]-a[1], uz = b[2]-a[2];
+    const vx = c[0]-a[0], vy = c[1]-a[1], vz = c[2]-a[2];
+    const nx = uy*vz-uz*vy, ny = uz*vx-ux*vz, nz = ux*vy-uy*vx;
+    const cx = (a[0]+b[0]+c[0]+d[0])/4 - ref[0];
+    const cy = (a[1]+b[1]+c[1]+d[1])/4 - ref[1];
+    const cz = (a[2]+b[2]+c[2]+d[2])/4 - ref[2];
+    if (nx*cx + ny*cy + nz*cz < 0){ tri(a, d, c, type, r); tri(a, c, b, type, r); }
+    else { tri(a, b, c, type, r); tri(a, c, d, type, r); }
+  }
+  const objects = {}; let cur = null, curMeta = null;
+  function beginObj(name, meta){ cur = { start: pos.length / 3 }; curMeta = meta; objects[name] = cur; cur.meta = meta; }
+  function endObj(){ cur.count = pos.length / 3 - cur.start; }
+
+  // 環：任意斷面 polyline 繞 Y 掃出；斷面點 [(u,v)...] 閉合；削角段自動判定 type1
+  function buildRing(name, R, profile, segs){
+    beginObj(name, { kind: 'ring', R });
+    const m = profile.length;
+    const segType = profile.map((p, i) => {
+      const q = profile[(i + 1) % m];
+      return (Math.abs(p[0] - q[0]) > 1e-6 && Math.abs(p[1] - q[1]) > 1e-6) ? 1 : 0;
+    });
+    const map = (u, v, th) => [(R + u) * Math.cos(th), v, (R + u) * Math.sin(th)];
+    for (let s = 0; s < segs; s++){
+      const th0 = s / segs * Math.PI * 2, th1 = (s + 1) / segs * Math.PI * 2;
+      const thm = (th0 + th1) / 2;
+      const ref = [R * Math.cos(thm), 0, R * Math.sin(thm)];
+      const ang = s / segs;
+      for (let i = 0; i < m; i++){
+        const p = profile[i], q = profile[(i + 1) % m];
+        quadOut(map(p[0], p[1], th0), map(q[0], q[1], th0), map(q[0], q[1], th1), map(p[0], p[1], th1),
+                ref, segType[i], ang);
+      }
+    }
+    endObj();
+  }
+  // 帶溝槽的寬環斷面（外環用）
+  function groovedProfile(t, h, c, g, d){
+    return [
+      [-t/2 + c,  h/2], [ t/2 - c,  h/2], [ t/2,  h/2 - c],
+      [ t/2,  g/2], [ t/2 - d,  g/2], [ t/2 - d, -g/2], [ t/2, -g/2],
+      [ t/2, -h/2 + c], [ t/2 - c, -h/2], [-t/2 + c, -h/2],
+      [-t/2, -h/2 + c], [-t/2,  h/2 - c],
+    ];
+  }
+  function chamferProfile(t, h, c){
+    return [
+      [-t/2 + c,  h/2], [ t/2 - c,  h/2], [ t/2,  h/2 - c], [ t/2, -h/2 + c],
+      [ t/2 - c, -h/2], [-t/2 + c, -h/2], [-t/2, -h/2 + c], [-t/2,  h/2 - c],
+    ];
+  }
+  function buildBox(name, cx, cy, cz, sx, sy, sz, type){
+    beginObj(name, { kind: 'box' });
+    const x0 = cx - sx/2, x1 = cx + sx/2, y0 = cy - sy/2, y1 = cy + sy/2, z0 = cz - sz/2, z1 = cz + sz/2;
+    const ref = [cx, cy, cz], r = Math.abs(Math.sin(cx * 12.9 + cz * 78.2));
+    quadOut([x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1], ref, type, r);
+    quadOut([x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[x1,y0,z0], ref, type, r);
+    quadOut([x0,y1,z0],[x0,y1,z1],[x1,y1,z1],[x1,y1,z0], ref, type, r);
+    quadOut([x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1], ref, type, r);
+    quadOut([x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[x1,y0,z1], ref, type, r);
+    quadOut([x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0], ref, type, r);
+    endObj();
+  }
+  // 核心：殼板（每面向質心收縮＋沿法線抬升 → 縫隙）＋內部發光球
+  function icosphere(sub){
+    const nn = (p) => { const l = Math.hypot(p[0], p[1], p[2]); return [p[0]/l, p[1]/l, p[2]/l]; };
+    const mid = (a, b) => nn([(a[0]+b[0])/2, (a[1]+b[1])/2, (a[2]+b[2])/2]);
+    const t0 = (1 + Math.sqrt(5)) / 2;
+    const iv = [[-1,t0,0],[1,t0,0],[-1,-t0,0],[1,-t0,0],[0,-1,t0],[0,1,t0],[0,-1,-t0],[0,1,-t0],[t0,0,-1],[t0,0,1],[-t0,0,-1],[-t0,0,1]].map(nn);
+    const ifc = [[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],[3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
+    let tris = ifc.map(([a,b,c]) => [iv[a], iv[b], iv[c]]);
+    for (let s = 0; s < sub; s++){
+      const nt = [];
+      for (const [a,b,c] of tris){
+        const ab = mid(a,b), bc = mid(b,c), ca = mid(c,a);
+        nt.push([a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]);
+      }
+      tris = nt;
+    }
+    return tris;
+  }
+  function buildCore(nameShell, nameGlow, r){
+    beginObj(nameShell, { kind: 'coreShell' });
+    icosphere(2).forEach((f, fi) => {
+      const A = f[0].map(v => v*r), B = f[1].map(v => v*r), C = f[2].map(v => v*r);
+      const m = [(A[0]+B[0]+C[0])/3, (A[1]+B[1]+C[1])/3, (A[2]+B[2]+C[2])/3];
+      const ml = Math.hypot(m[0], m[1], m[2]);
+      const nl = [m[0]/ml, m[1]/ml, m[2]/ml];
+      const lift = 0.010;
+      const sk = (p) => [
+        m[0] + (p[0]-m[0]) * 0.90 + nl[0]*lift,
+        m[1] + (p[1]-m[1]) * 0.90 + nl[1]*lift,
+        m[2] + (p[2]-m[2]) * 0.90 + nl[2]*lift,
+      ];
+      const rr = Math.abs(Math.sin(fi * 127.1)) ;
+      const A2 = sk(A), B2 = sk(B), C2 = sk(C);
+      // 朝外
+      const ux=B2[0]-A2[0],uy=B2[1]-A2[1],uz=B2[2]-A2[2],vx=C2[0]-A2[0],vy=C2[1]-A2[1],vz=C2[2]-A2[2];
+      const nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+      if (nx*m[0]+ny*m[1]+nz*m[2] < 0) tri(A2, C2, B2, 2, rr); else tri(A2, B2, C2, 2, rr);
+    });
+    endObj();
+    beginObj(nameGlow, { kind: 'coreGlow' });
+    icosphere(1).forEach((f, fi) => {
+      const rg = r * 0.90;
+      const A = f[0].map(v => v*rg), B = f[1].map(v => v*rg), C = f[2].map(v => v*rg);
+      const m = [(A[0]+B[0]+C[0])/3, (A[1]+B[1]+C[1])/3, (A[2]+B[2]+C[2])/3];
+      const ux=B[0]-A[0],uy=B[1]-A[1],uz=B[2]-A[2],vx=C[0]-A[0],vy=C[1]-A[1],vz=C[2]-A[2];
+      const nx=uy*vz-uz*vy, ny=uz*vx-ux*vz, nz=ux*vy-uy*vx;
+      const rr = Math.abs(Math.sin(fi * 311.7));
+      if (nx*m[0]+ny*m[1]+nz*m[2] < 0) tri(A, C, B, 3, rr); else tri(A, B, C, 3, rr);
+    });
+    endObj();
+  }
+
+  const R_OUT = 1.14, R_IN = 0.76, R_CORE = 0.335;
+  const T_OUT = 0.10, H_OUT = 0.30, T_IN = 0.075, H_IN = 0.16;
+  buildRing('out', R_OUT, groovedProfile(T_OUT, H_OUT, 0.022, 0.10, 0.024), 112);
+  buildRing('in',  R_IN,  chamferProfile(T_IN, H_IN, 0.018), 96);
+  // 一體化軸承座＋軸銷（外環 ±X 內側，內環繞 X 樞轉）
+  const bossOuterEdge = R_OUT - T_OUT / 2 + 0.01;
+  buildBox('bossPX',  (bossOuterEdge - 0.09), 0, 0, 0.20, 0.17, 0.13, 4);
+  buildBox('bossNX', -(bossOuterEdge - 0.09), 0, 0, 0.20, 0.17, 0.13, 4);
+  const pinOut = bossOuterEdge - 0.18, pinIn = R_IN + T_IN / 2 - 0.01;
+  buildBox('pinPX',  (pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.055, 0.055, 4);
+  buildBox('pinNX', -(pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.055, 0.055, 4);
+  buildCore('coreShell', 'coreGlow', R_CORE);
+
+  /* ---- SDF 烘焙頂點 AO（環以球殼近似＝旋轉不變，自身用精確 torus） ---- */
+  const sdShell = (p, R, th) => Math.abs(Math.hypot(p[0], p[1], p[2]) - R) - th;
+  const sdTorus = (p, R, tr) => {
+    const q = Math.hypot(Math.hypot(p[0], p[2]) - R, p[1]);
+    return q - tr;
+  };
+  const sdSphere = (p, r) => Math.hypot(p[0], p[1], p[2]) - r;
+  const TUBE_OUT = Math.hypot(T_OUT, H_OUT) / 2 * 0.9;
+  const TUBE_IN = Math.hypot(T_IN, H_IN) / 2 * 0.9;
+  function bakeAO(){
+    const n = pos.length / 3, ao = new Float32Array(n);
+    for (let name in objects){
+      const o = objects[name], meta = o.meta;
+      const selfOut = (name === 'out'), selfIn = (name === 'in');
+      const isCore = meta.kind === 'coreShell' || meta.kind === 'coreGlow';
+      for (let i = o.start; i < o.start + o.count; i++){
+        const p = [pos[i*3], pos[i*3+1], pos[i*3+2]];
+        const N = [nrm[i*3], nrm[i*3+1], nrm[i*3+2]];
+        let a = 1, w = 0.72;
+        for (const r of [0.035, 0.08, 0.16, 0.30, 0.5]){
+          const q = [p[0] + N[0]*r, p[1] + N[1]*r, p[2] + N[2]*r];
+          let d = 1e9;
+          d = Math.min(d, selfOut ? sdTorus(q, R_OUT, TUBE_OUT) : sdShell(q, R_OUT, TUBE_OUT));
+          d = Math.min(d, selfIn ? sdTorus(q, R_IN, TUBE_IN) : sdShell(q, R_IN, TUBE_IN));
+          if (!isCore) d = Math.min(d, sdSphere(q, R_CORE));
+          a -= Math.max(0, (r - Math.max(d, 0)) / r) * w;
+          w *= 0.6;
+        }
+        ao[i] = Math.pow(Math.min(1, Math.max(0.18, a)), 1.5);
+      }
+    }
+    return ao;
+  }
+  const aoArr = bakeAO();
+
+  const n = pos.length / 3, STRIDE = 9, FB = 4;
+  const data = new Float32Array(n * STRIDE);
+  for (let i = 0; i < n; i++){
+    data.set([pos[i*3], pos[i*3+1], pos[i*3+2], nrm[i*3], nrm[i*3+1], nrm[i*3+2], aoArr[i], typ[i], rnd[i]], i * STRIDE);
+  }
+  const vaoScene = gl.createVertexArray();
+  gl.bindVertexArray(vaoScene);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  [[0,3,0],[1,3,3],[2,1,6],[3,1,7],[4,1,8]].forEach(([loc, size, off]) => {
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, size, gl.FLOAT, false, STRIDE * FB, off * FB);
+  });
+  const vaoQuad = gl.createVertexArray();
+  gl.bindVertexArray(vaoQuad);
+  const qbuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, qbuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
+
+  /* ================================ FBOs ================================ */
+  function texFBO(w, h){
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    const f = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    return { t, f, w, h };
+  }
+  let W = 0, H = 0, fbo = null;
+  function buildFBOs(){
+    const samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES));
+    const ms = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, ms);
+    const rbC = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, rbC);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA16F, W, H);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, rbC);
+    const rbD = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, rbD);
+    gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, W, H);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rbD);
+    const scene = texFBO(W, H);
+    const w2 = W >> 1, h2 = H >> 1, w4 = W >> 2, h4 = H >> 2, w8 = W >> 3, h8 = H >> 3;
+    fbo = {
+      ms, scene,
+      bright: texFBO(w2, h2),
+      b0a: texFBO(w2, h2), b0b: texFBO(w2, h2),
+      b1a: texFBO(w4, h4), b1b: texFBO(w4, h4),
+      b2a: texFBO(w8, h8), b2b: texFBO(w8, h8),
+    };
+  }
+
+  function resize(){
+    const dpr = Math.min(devicePixelRatio || 1, 1.5);
+    const s = Math.min(1, 1600 / (Math.max(innerWidth, innerHeight) * dpr));
+    W = Math.max(8, Math.round(innerWidth * dpr * s));
+    H = Math.max(8, Math.round(innerHeight * dpr * s));
+    cv.width = W; cv.height = H;
+    buildFBOs();
+    gl.useProgram(P.scene.p);
+    const f = 1 / Math.tan(0.60 / 2), asp = W / H;
+    gl.uniformMatrix4fv(P.scene.u.uProj, false, new Float32Array([f/asp,0,0,0, 0,f,0,0, 0,0,(12.1)/(0.1-12),-1, 0,0,2*12*0.1/(0.1-12),0]));
+  }
+
+  /* ================================ 矩陣・伺服 ================================ */
+  const mul = (a, b) => {
+    const o = new Float32Array(9);
+    for (let c = 0; c < 3; c++) for (let r = 0; r < 3; r++)
+      o[c*3+r] = a[r]*b[c*3] + a[3+r]*b[c*3+1] + a[6+r]*b[c*3+2];
+    return o;
+  };
+  const rx = (t) => { const c=Math.cos(t), s=Math.sin(t); return new Float32Array([1,0,0, 0,c,s, 0,-s,c]); };
+  const ry = (t) => { const c=Math.cos(t), s=Math.sin(t); return new Float32Array([c,0,-s, 0,1,0, s,0,c]); };
+
+  function servo(period, stepRad, phase){ return { t: phase, target: stepRad * 0.6, a: 0, v: 0, period, step: stepRad }; }
+  function servoTick(s, dt){
+    s.t += dt;
+    if (s.t > s.period){ s.t -= s.period; s.target += s.step; }
+    const acc = (s.target - s.a) * 16 - s.v * 6.4;   // 重、慢、微過衝
+    s.v += acc * dt; s.a += s.v * dt;
+    return s.a;
+  }
+  const svOut = servo(5.6, 60 * Math.PI / 180, 0);
+  const svIn = servo(8.4, -42 * Math.PI / 180, 2.6);
+
+  let tx = 0, ty = 0, mx = 0, my = 0;
+  addEventListener('pointermove', (e) => {
+    tx = (e.clientX / innerWidth) * 2 - 1;
+    ty = (e.clientY / innerHeight) * 2 - 1;
+  }, { passive: true });
+
+  /* ================================ 繪製 ================================ */
+  function drawObj(name, rot){
+    const o = objects[name];
+    gl.uniformMatrix3fv(P.scene.u.uRot, false, rot);
+    gl.uniform3f(P.scene.u.uLoc, 0, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, o.start, o.count);
+  }
+
+  function frame(t, aOut, aIn){
+    mx += (tx - mx) * 0.04; my += (ty - my) * 0.04;
+    // --- 場景（HDR＋MSAA） ---
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.ms);
+    gl.viewport(0, 0, W, H);
+    gl.enable(gl.DEPTH_TEST);
+    gl.clearColor(0.030, 0.030, 0.033, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(P.scene.p);
+    gl.bindVertexArray(vaoScene);
+    gl.uniform1f(P.scene.u.uT, t);
+    const G = mul(ry(0.42 + mx * 0.4), rx(-0.52 + my * 0.26));
+    const M1 = mul(G, ry(aOut));
+    const M2 = mul(M1, rx(aIn));
+    const Mc = mul(M2, ry(t * 0.10));
+    drawObj('out', M1);
+    drawObj('bossPX', M1); drawObj('bossNX', M1);
+    drawObj('pinPX', M1); drawObj('pinNX', M1);
+    drawObj('in', M2);
+    drawObj('coreShell', Mc);
+    drawObj('coreGlow', Mc);
+    // --- resolve MSAA → scene tex ---
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo.ms);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo.scene.f);
+    gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+    gl.disable(gl.DEPTH_TEST);
+    gl.bindVertexArray(vaoQuad);
+    const pass = (pr, dst, binds, set) => {
+      gl.useProgram(pr.p);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, dst ? dst.f : null);
+      gl.viewport(0, 0, dst ? dst.w : W, dst ? dst.h : H);
+      binds.forEach(([uname, tex], i) => {
+        gl.activeTexture(gl.TEXTURE0 + i);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.uniform1i(pr.u[uname], i);
+      });
+      if (set) set(pr);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+    // --- bloom 金字塔 ---
+    pass(P.bright, fbo.bright, [['uTex', fbo.scene.t]]);
+    pass(P.blur, fbo.b0a, [['uTex', fbo.bright.t]], (pr) => gl.uniform2f(pr.u.uDir, 1 / fbo.bright.w, 0));
+    pass(P.blur, fbo.b0b, [['uTex', fbo.b0a.t]], (pr) => gl.uniform2f(pr.u.uDir, 0, 1 / fbo.b0a.h));
+    pass(P.blur, fbo.b1a, [['uTex', fbo.b0b.t]], (pr) => gl.uniform2f(pr.u.uDir, 1 / fbo.b1a.w, 0));
+    pass(P.blur, fbo.b1b, [['uTex', fbo.b1a.t]], (pr) => gl.uniform2f(pr.u.uDir, 0, 1 / fbo.b1a.h));
+    pass(P.blur, fbo.b2a, [['uTex', fbo.b1b.t]], (pr) => gl.uniform2f(pr.u.uDir, 1 / fbo.b2a.w, 0));
+    pass(P.blur, fbo.b2b, [['uTex', fbo.b2a.t]], (pr) => gl.uniform2f(pr.u.uDir, 0, 1 / fbo.b2a.h));
+    // --- 合成 ---
+    pass(P.comp, null, [['uScene', fbo.scene.t], ['uB0', fbo.b0b.t], ['uB1', fbo.b1b.t], ['uB2', fbo.b2b.t]], (pr) => {
+      gl.uniform1f(pr.u.uT, t);
+      gl.uniform2f(pr.u.uRes, W, H);
+    });
+  }
+
+  resize();
+  function still(t){ frame(t, 0.35, 0.75); }
+  function snap(){
+    const img = document.createElement('img');
+    img.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:1;';
+    img.src = cv.toDataURL('image/png');
+    document.body.appendChild(img);
+  }
+  addEventListener('resize', () => { resize(); if (reduce) still(8); }, { passive: true });
+
+  if (reduce){ still(8); fpsEl.textContent = 'static (reduced motion)'; return; }
+  still(8);
+  if (location.hash === '#still'){ snap(); fpsEl.textContent = 'still snapshot'; return; }
+
+  let frames = 0, last = performance.now();
+  setInterval(() => {
+    const now = performance.now();
+    fpsEl.textContent = Math.round(frames * 1000 / (now - last)) + ' FPS · ' + W + '×' + H;
+    frames = 0; last = now;
+  }, 500);
+  let prev = 0;
+  function loop(ts){
+    if (!document.hidden){
+      const t = ts / 1000;
+      const dt = Math.min(0.05, prev ? t - prev : 0.016);
+      prev = t;
+      frame(t, servoTick(svOut, dt), servoTick(svIn, dt));
+      frames++;
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

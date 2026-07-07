@@ -1,0 +1,429 @@
+<!doctype html>
+<!-- LINKU rendering-upgrade P-proof v3：「同樣的硬體，兩種結果」——分層揭露版
+     L0 圖像（兩環＋誤差歷史軌跡）→ L1 數字（RMS＋安定時間）→ L2 互動（游標/干擾）→ L3 規格（details 收合）。
+     硬邏輯：兩側同受控體/同力矩上限/同編碼器（量化＋雜訊＋50ms 延遲）/同雜訊序列；
+     一般側＝PD 於延遲生訊號（差分速度，ζ≈0.29 會收斂但慢且抖，非稻草人）；
+     我方側＝α–β 估測器＋已知延遲前向預測＋良好整定 PD。
+     canvas 僅繪數字，文字全在 DOM（三語化零障礙）。#still 條件式凍結。不進版控。 -->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+<title>Prototype P2 v4 — 同樣的硬體，兩種結果</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500&family=Noto+Sans+TC:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --cream:#e8e6e0;
+    --muted:#6a6a6a;
+    --muted-dim:#4a4a4a;
+    --line:rgba(232,230,224,.12);
+    --order:#e8b478;
+    --order-hi:#f7d9a8;
+    --steel:#8194ab;
+    --body:'Space Grotesk','Noto Sans TC',sans-serif;
+    --cjk:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--bg)}
+  body{color:var(--cream);font-family:var(--body);font-weight:300;min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  body::before{
+    content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(46vmax 46vmax at 50% 48%, rgba(232,180,120,.04), rgba(232,180,120,0) 70%);
+    mix-blend-mode:screen;
+  }
+  body::after{
+    content:'';position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .tag{position:fixed;left:clamp(28px,6vw,96px);top:26px;font-size:10px;letter-spacing:.35em;color:var(--muted);text-transform:uppercase;z-index:2;font-weight:400}
+  main{position:relative;z-index:2;max-width:1400px;padding:96px clamp(28px,6vw,96px);margin:0 auto}
+  .label{font-size:.65rem;font-weight:400;letter-spacing:.35em;text-transform:uppercase;color:rgba(255,255,255,.3);display:flex;align-items:center;gap:14px}
+  .label::before{content:'';width:28px;height:1px;background:var(--muted-dim)}
+  .proof-title{margin-top:34px;font-family:var(--cjk);font-weight:500;font-size:clamp(2rem,4.6vw,3.6rem);line-height:1.06;letter-spacing:.04em}
+  .proof-sub{margin-top:22px;max-width:44em;font-family:var(--cjk);font-size:.9rem;line-height:1.9;letter-spacing:.04em;color:rgba(232,230,224,.55)}
+  .same{margin-top:24px;font:11px var(--mono);letter-spacing:.14em;color:var(--muted);display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+  .same .sep{color:var(--muted-dim)}
+  .same .only{color:var(--order)}
+  .stage{margin-top:clamp(28px,4vh,44px);border-top:1px solid var(--line);padding-top:6px}
+  canvas{display:block;width:100%;height:min(56vh,540px);cursor:crosshair;touch-action:none}
+  .caps{display:grid;grid-template-columns:1fr 1fr;margin-top:4px}
+  .cap{display:flex;align-items:baseline;justify-content:center;gap:18px;font-size:.6rem;font-weight:400;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);flex-wrap:wrap}
+  .cap output{font:12px var(--mono);letter-spacing:.06em;color:var(--steel)}
+  .cap.linku output{color:var(--order)}
+  .hint{margin-top:clamp(20px,3vh,32px);font-size:10px;letter-spacing:.2em;color:#555}
+  #play{margin-top:16px;font:12px var(--mono);color:var(--order);background:none;border:1px solid color-mix(in srgb,var(--order) 45%,transparent);padding:6px 16px;cursor:pointer;letter-spacing:.08em}
+  details{margin-top:clamp(24px,4vh,40px);border-top:1px solid var(--line);max-width:760px}
+  summary{
+    cursor:pointer;list-style:none;padding:14px 0;
+    font-size:.65rem;font-weight:400;letter-spacing:.3em;text-transform:uppercase;color:var(--muted);
+    display:flex;align-items:center;gap:12px;
+  }
+  summary::-webkit-details-marker{display:none}
+  summary::before{content:'▸';color:var(--order);font-size:10px;transition:transform .2s}
+  details[open] summary::before{transform:rotate(90deg)}
+  summary:hover{color:var(--cream)}
+  .spec{font:11px/2.1 var(--mono);letter-spacing:.05em;color:rgba(232,230,224,.5);padding:2px 0 18px}
+  .spec b{font-weight:400;color:rgba(232,230,224,.75)}
+  .spec .o{color:var(--order)}
+  .note{margin-top:clamp(18px,3vh,28px);font:10px/1.9 var(--mono);letter-spacing:.06em;color:rgba(232,230,224,.28)}
+  @media (max-width:720px){
+    canvas{height:70vh}
+    .cap{flex-direction:column;gap:6px;align-items:center;text-align:center}
+  }
+</style>
+</head>
+<body>
+<div class="tag">Prototype P2 v4 — Proof 證明段（/technology/ 定位）</div>
+<main>
+  <div class="label">Method</div>
+  <h2 class="proof-title">同樣的硬體，兩種結果。</h2>
+  <p class="proof-sub">左右是兩套完全相同的模擬硬體，追同一個目標、吃同一記干擾。左邊跑常見作法（固定增益 PID），右邊把公開的最佳實務正確地部署進同一顆便宜硬體——這就是我們說的：讓整體系統超越同等硬體的一般方案。更快的安定＝更高的節拍；更小的誤差＝更便宜的機構與感測就能達標。</p>
+  <div class="same" aria-hidden="true">
+    <span>相同馬達模型</span><span class="sep">·</span>
+    <span>相同力矩上限</span><span class="sep">·</span>
+    <span>相同編碼器與迴路頻率</span><span class="sep">——</span>
+    <span>唯一不同：<span class="only">演算法</span></span>
+  </div>
+
+  <div class="stage">
+    <canvas id="c" aria-label="兩個相同的模擬轉軸追蹤同一目標：左為一般控制（慢、過衝、抖動），右為 LINKU 演算法（快而穩）；下方為兩側誤差的時間軌跡"></canvas>
+    <div class="caps">
+      <div class="cap"><span>常見作法</span><output id="r0">RMS —</output><output id="s0">安定 —</output></div>
+      <div class="cap linku"><span>軟硬協同</span><output id="r1">RMS —</output><output id="s1">安定 —</output></div>
+    </div>
+  </div>
+
+  <div class="hint">移動游標＝移動目標　·　點擊＝同時對兩邊施加干擾　·　下方細線＝誤差的時間軌跡（越平越好）</div>
+  <button id="play" hidden type="button">播放動畫</button>
+
+  <details>
+    <summary>給工程師：模型與參數</summary>
+    <div class="spec">
+      <b>受控體（兩側相同）</b>　J·θ̈ = τ − b·θ̇ + d(t)，J = 1，b = 0.15，|τ| ≤ 6；迴路 240 Hz、感測延遲 1 拍（兩側相同）<br>
+      <b>感測（兩側相同）</b>　編碼器量化 1.5°（≈240 CPR），高斯雜訊 σ = 0.5°；兩側共用同一雜訊序列（common random numbers）<br>
+      <b>常見作法（真實現狀）</b>　固定增益 PID（Ziegler–Nichols 風格整定）：τ = 9·e + ∫5·e − 1.5·ê̇；速度＝編碼器差分（雜訊直通 D 項），積分僅粗暴限幅（|I| ≤ 0.6·τmax）→ 大步階仍有飽和積分暴衝；階躍指令直接餵，無軌跡、無前饋、無模型<br>
+      <b class="o">軟硬協同（公開最佳實務的正確部署）</b>　狀態估測（穩態卡爾曼 α–β，ω≈46 rad/s）＋一拍前向預測；近似時間最優速度 governor（PTOS：遠處 v ≤ √(2a·e)、近處線性終端，a ≤ 0.8·τmax/J，留回授餘裕）；模型前饋 τff = J·a_ref + b·ω_ref；動量式擾動觀測器（ω≈12 rad/s）估測並抵消外力矩；回授 τfb = 40·(θref−θ̂) + 11·(ωref−ω̂)（ζ ≈ 0.87）<br>
+      <b>干擾</b>　點擊＝對兩側同時注入等量衝擊力矩；環境擾動為連續小雜訊力矩（共用序列）<br>
+      <b>統計</b>　RMS＝最近 4 秒對最終目標的誤差均方根；安定＝事件後首次進入 ±2° 帶並停留 0.3 s 的時間<br>
+      <b>聲明</b>　右側全部為公開教科書級技術；差距不靠祕密，靠正確的部署與整定——這正是軟硬協同的意義
+    </div>
+  </details>
+
+  <p class="note">模擬示意，非量測資料 · 兩側共用同一目標、同一干擾與同一雜訊序列 · 尊重 prefers-reduced-motion，離屏自動暫停</p>
+</main>
+
+<script>
+(function(){
+  "use strict";
+  var TAU = Math.PI*2, D2R = Math.PI/180, R2D = 180/Math.PI;
+  var wrap = function(a){ return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; };
+
+  /* ── 相同的「硬體」 ── */
+  var J = 1.0, B = 0.15, TMAX = 6.0;
+  var QUANT = 1.5*D2R, NOISE = 0.5*D2R;
+  var LAT = 1;                                 // 感測延遲 1 拍（240Hz，兩側相同；編碼器場景的真實量級）
+  var DT = 1/240, SUB = 4;
+  // 右側 PTOS 軌跡 governor 常數
+  var A_MAX = 0.8*TMAX/J;                       // 軌跡加速度上限（留回授與 DOB 餘裕）
+  var V_MAX = 6.0;                             // 巡航速度上限
+  var E_LIN = 0.06;                            // 線性終端半徑（rad，≈3.4°）
+  var K_LIN = Math.sqrt(2*A_MAX/E_LIN);        // 邊界匹配增益（C0 連續）
+
+  function gauss(){ var u=0,v=0; while(!u)u=Math.random(); while(!v)v=Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(TAU*v); }
+
+  function makeSide(kind){
+    return { kind:kind, th:0, w:0, measBuf:[], est:0, estW:0,
+             I:0, refTh:0, refW:0, dHat:0, pHat:0, tauPrev:0,
+             trail:[], errHist:[], inBand:-1, settle:null };
+  }
+  var S = [makeSide("naive"), makeSide("linku")];
+  var target = 0;
+
+  function sense(side, n){
+    var m = Math.round((side.th + n*NOISE)/QUANT)*QUANT;
+    side.measBuf.push(m);
+    if (side.measBuf.length > LAT+6) side.measBuf.shift();
+    return side.measBuf[Math.max(0, side.measBuf.length-1-LAT)];   // 兩側同樣吃延遲量測
+  }
+
+  function stepSide(side, dt, n, distT){
+    var mLag = sense(side, n);
+    var tq;
+    if (side.kind === "naive"){
+      /* 真實現狀：固定增益 PID（ZN 風格整定）＋編碼器差分測速（雜訊直通 D 項）；
+         積分粗暴限幅（|I|≤τmax）→ 大步階時飽和積分暴衝（windup）；階躍直接餵 */
+      var buf = side.measBuf;
+      var i = Math.max(0, buf.length-1-LAT);
+      var iPrev = Math.max(0, i-3);
+      var vel = wrap(buf[i] - buf[iPrev]) / (dt*(i-iPrev||1));
+      var e = wrap(target - mLag);
+      side.I = Math.max(-0.6*TMAX, Math.min(0.6*TMAX, side.I + 5.0*e*dt));
+      tq = 9.0*e + side.I - 1.5*vel;
+    } else {
+      /* 頂級標配（皆為公開教科書技術）：
+         穩態卡爾曼估測＋一拍預測 → 線上時間最優軌跡 → 模型前饋 ＋ 動量式 DOB ＋ 良整定回授 */
+      var innov = wrap(mLag - side.est);
+      side.est  = wrap(side.est + side.estW*dt + 0.28*innov);
+      side.estW = side.estW + 9.0*innov;                  // ω≈46 rad/s、ζ≈0.72
+      // 動量式擾動觀測器（ω≈12 rad/s、ζ≈1）
+      side.pHat += (side.tauPrev - B*side.estW + side.dHat)*dt;
+      var pErr = J*side.estW - side.pHat;
+      side.pHat += 24*pErr*dt;
+      side.dHat = Math.max(-TMAX, Math.min(TMAX, side.dHat + 144*pErr*dt));
+      // 近似時間最優速度 governor（PTOS）：遠處 sqrt 減速剖面、近處線性終端。
+      // 純 sqrt 在原點附近離散化會 limit-cycle（實測翻號率≈100%）；線性終端消除之。
+      var eR = wrap(target - side.refTh), ae = Math.abs(eR);
+      var vProf = ae < E_LIN ? K_LIN*ae : Math.sqrt(2*A_MAX*ae);   // C0 連續：K_LIN=√(2·aMax/E_LIN)
+      var vDes = (eR>=0?1:-1) * Math.min(vProf, V_MAX);
+      var applied = Math.max(-A_MAX*dt, Math.min(A_MAX*dt, vDes - side.refW));  // 限加速度趨近
+      side.refW += applied;
+      side.refTh = wrap(side.refTh + side.refW*dt);
+      var aRef = applied/dt;                               // 實際參考加速度（前饋用）
+      // 前饋＋回授（作用於一拍預測後的估測狀態）－擾動抵消
+      var predTh = wrap(side.est + side.estW*dt*(LAT+1));
+      tq = J*aRef + B*side.refW
+         + 40.0*wrap(side.refTh - predTh) + 11.0*(side.refW - side.estW)
+         - side.dHat;
+    }
+    tq = Math.max(-TMAX, Math.min(TMAX, tq));
+    if (side.kind !== "naive") side.tauPrev = tq;
+    side.w += ((tq - B*side.w + distT)/J)*dt;
+    side.th = wrap(side.th + side.w*dt);
+  }
+
+  var dist = 0;
+  function physics(){
+    for (var s=0; s<SUB; s++){
+      var n = gauss(), envN = gauss()*0.15;
+      stepSide(S[0], DT, n, dist + envN);
+      stepSide(S[1], DT, n, dist + envN);
+      dist *= Math.exp(-DT*6);
+    }
+  }
+
+  /* ── 目標與事件（跳躍＝統計起點） ── */
+  var lastJump = 0, jumpT = -1, pointerT = -10;
+  function markJump(t){
+    jumpT = t;
+    S.forEach(function(s){ s.inBand = -1; s.settle = null; });
+  }
+  function autoTarget(t){
+    if (t - pointerT < 3.5){ lastJump = t; return; }   // 互動中/剛結束：持續延後自動跳，避免冷卻一過就突然甩
+    if (t - lastJump > 6.0){
+      lastJump = t;
+      target = wrap(target + (Math.random()<.5?-1:1)*(0.9 + Math.random()*1.3));
+      markJump(t);
+    }
+  }
+  function settleTrack(t){
+    S.forEach(function(s){
+      if (jumpT < 0 || s.settle !== null) return;
+      if (Math.abs(wrap(target - s.th)) < 2*D2R){
+        if (s.inBand < 0) s.inBand = t;
+        else if (t - s.inBand > 0.3) s.settle = s.inBand - jumpT;
+      } else s.inBand = -1;
+    });
+  }
+
+  /* ── 畫布佈局：上＝雙環、下＝誤差時間軌跡 ── */
+  var cv = document.getElementById("c"), ctx = cv.getContext("2d");
+  var Wc=0, Hc=0, R=0, CX=[0,0], CY=0, BY=0, BH=0, BW=0;
+  function resize(){
+    var dpr = Math.min(devicePixelRatio||1, 2);
+    var r = cv.getBoundingClientRect();
+    Wc = r.width; Hc = r.height;
+    cv.width = Math.max(1, Math.round(r.width*dpr));
+    cv.height = Math.max(1, Math.round(r.height*dpr));
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    R = Math.min(Wc*0.155, Hc*0.30);
+    CX = [Wc*0.27, Wc*0.73]; CY = Hc*0.36;
+    BY = Hc*0.76; BH = Hc*0.15; BW = Math.min(Wc*0.34, 460);
+  }
+
+  var CREAM="#e8e6e0", LINE="rgba(232,230,224,.12)", MUTED="#6a6a6a";
+  var STEEL="#8194ab", STEEL_D="rgba(129,148,171,", ORDER="#e8b478", ORDER_HI="#f7d9a8", ORDER_D="rgba(232,180,120,";
+
+  var HIST = 240;                                          // 4 秒 × 60fps
+  function record(t){
+    S.forEach(function(s){
+      s.trail.push(s.th); if (s.trail.length > 64) s.trail.shift();
+      s.errHist.push(Math.abs(wrap(target - s.th))*R2D);
+      if (s.errHist.length > HIST) s.errHist.shift();
+    });
+    settleTrack(t);
+  }
+
+  function drawRing(i){
+    var cx=CX[i], cy=CY, side=S[i];
+    var mainD = i? ORDER_D : STEEL_D;
+
+    var err = wrap(target - side.th);
+    ctx.beginPath(); ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,R*0.985, -side.th, -side.th - err, err>0);
+    ctx.closePath();
+    ctx.fillStyle = mainD + "0.10)"; ctx.fill();
+
+    ctx.strokeStyle = LINE; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx,cy,R*0.72,0,TAU); ctx.globalAlpha=.35; ctx.stroke(); ctx.globalAlpha=1;
+
+    var tr = side.trail, n = tr.length;
+    for (var k=1; k<n; k++){
+      var d = wrap(tr[k]-tr[k-1]);
+      if (Math.abs(d) < 1e-4) continue;
+      ctx.beginPath();
+      ctx.arc(cx,cy,R, -tr[k-1], -tr[k], d>0);
+      ctx.strokeStyle = mainD + (0.03 + 0.30*(k/n)) + ")";
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+    }
+
+    var ta = -target;
+    ctx.strokeStyle = CREAM; ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(ta)*(R+7), cy+Math.sin(ta)*(R+7));
+    ctx.lineTo(cx+Math.cos(ta)*(R+17), cy+Math.sin(ta)*(R+17));
+    ctx.stroke();
+
+    var aa = -side.th;
+    ctx.strokeStyle = mainD + "0.28)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(aa)*R, cy+Math.sin(aa)*R); ctx.stroke();
+    if (i){ ctx.shadowColor = ORDER_D + "0.55)"; ctx.shadowBlur = 10; }
+    ctx.fillStyle = i? ORDER_HI : STEEL;
+    ctx.beginPath(); ctx.arc(cx+Math.cos(aa)*R, cy+Math.sin(aa)*R, 4.2, 0, TAU); ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = MUTED;
+    ctx.beginPath(); ctx.arc(cx,cy,1.6,0,TAU); ctx.fill();
+  }
+
+  /* 誤差時間軌跡：平＝好。50° 滿刻度，最新值靠右。 */
+  function drawStrip(i){
+    var side=S[i], x0=CX[i]-BW/2, y1=BY+BH;
+    ctx.strokeStyle = LINE; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x0+BW, y1); ctx.stroke();   // 0° 基線
+    ctx.globalAlpha=.35;
+    ctx.beginPath(); ctx.moveTo(x0, BY); ctx.lineTo(x0+BW, BY); ctx.stroke();   // 50° 上限
+    ctx.globalAlpha=1;
+    var h = side.errHist, n = h.length;
+    if (n < 2) return;
+    ctx.strokeStyle = i? ORDER : STEEL; ctx.lineWidth = 1.3;
+    if (i){ ctx.shadowColor = ORDER_D + "0.35)"; ctx.shadowBlur = 6; }
+    ctx.beginPath();
+    for (var k=0; k<n; k++){
+      var x = x0 + BW - (n-1-k)*(BW/(HIST-1));
+      var y = y1 - Math.min(h[k],50)/50*BH;
+      if (k) ctx.lineTo(x,y); else ctx.moveTo(x,y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  var R0=document.getElementById("r0"), R1=document.getElementById("r1");
+  var S0=document.getElementById("s0"), S1=document.getElementById("s1");
+  var lastTxt=-1;
+  function rms(h){ var s=0; for (var k=0;k<h.length;k++) s+=h[k]*h[k]; return Math.sqrt(s/(h.length||1)); }
+  function draw(t){
+    ctx.clearRect(0,0,Wc,Hc);
+    drawRing(0); drawRing(1);
+    drawStrip(0); drawStrip(1);
+    if (t - lastTxt > 0.2){
+      lastTxt = t;
+      R0.textContent = "RMS " + rms(S[0].errHist).toFixed(1) + "°";
+      R1.textContent = "RMS " + rms(S[1].errHist).toFixed(1) + "°";
+      S0.textContent = S[0].settle !== null ? "安定 " + S[0].settle.toFixed(1) + " s" : "安定 —";
+      S1.textContent = S[1].settle !== null ? "安定 " + S[1].settle.toFixed(1) + " s" : "安定 —";
+    }
+  }
+
+  /* ── 互動 ── */
+  var perfT = 0;
+  function pointerTarget(e){
+    var r = cv.getBoundingClientRect();
+    var x = e.clientX - r.left, y = e.clientY - r.top;
+    var cx = (x < Wc/2) ? CX[0] : CX[1];
+    target = wrap(-Math.atan2(y - CY, x - cx));
+    pointerT = perfT;
+  }
+  cv.addEventListener("pointermove", pointerTarget, {passive:true});
+  cv.addEventListener("pointerdown", function(e){
+    pointerTarget(e);
+    dist = (Math.random()<.5?-1:1) * 30;
+    markJump(perfT);
+  });
+
+  /* ── 主迴圈 ── */
+  var prefersReduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var still = location.hash === "#still";
+  var running = !prefersReduced && !still, inView = true, rafId = 0, last = 0;
+
+  var simT = 0;
+  function loop(now){
+    rafId = requestAnimationFrame(loop);
+    last = now;
+    simT += SUB*DT;                    // 固定步進的模擬時間：與 physics 同步，免受分頁暫停/捲動離屏影響
+    perfT = simT;                      // 互動 handler 沿用同一時鐘
+    autoTarget(simT);
+    physics(); record(simT); draw(simT);
+  }
+  function start(){ if(!rafId && running && inView){ last = performance.now(); rafId = requestAnimationFrame(loop); } }
+  function stop(){ if(rafId){ cancelAnimationFrame(rafId); rafId = 0; } }
+
+  if ("IntersectionObserver" in window){
+    new IntersectionObserver(function(es){
+      inView = es[0].isIntersecting;
+      if (inView) start(); else stop();
+    },{threshold:.05}).observe(cv);
+  }
+
+  var btn = document.getElementById("play");
+  if (prefersReduced && !still){
+    btn.hidden = false;
+    btn.addEventListener("click", function(){
+      running = !running;
+      btn.textContent = running? "暫停動畫" : "播放動畫";
+      if (running) start(); else stop();
+    });
+  }
+
+  var rT=0;
+  addEventListener("resize", function(){ clearTimeout(rT); rT=setTimeout(resize,120); });
+
+  resize();
+
+  /* 預熱＋（still/reduced）條件式凍結在最能說話的瞬間 */
+  var tW = 0;
+  function warmStep(){ physics(); tW += DT*SUB; record(tW); }
+  for (var k=0; k<Math.round(2.5/(DT*SUB)); k++) warmStep();
+
+  if (still || prefersReduced){
+    target = wrap(target + 1.9);
+    markJump(tW);
+    var t0 = tW;
+    while (tW - t0 < 3.5){
+      warmStep();
+      var eL = Math.abs(wrap(target - S[0].th))*R2D;
+      var eR = Math.abs(wrap(target - S[1].th))*R2D;
+      if (tW - t0 > 1.2 && eL > 15 && S[1].settle !== null) break;
+    }
+    draw(tW);
+    if (still){
+      var img = document.createElement("img");
+      img.src = cv.toDataURL("image/png");
+      img.style.cssText = "display:block;width:100%;height:" + Hc + "px";
+      cv.replaceWith(img);
+    }
+  } else {
+    start();
+  }
+})();
+</script>
+</body>
+</html>
