@@ -24,6 +24,14 @@
  *     - 從 HTML 抽出這些元素的可見文字（略過 <script>/<style> 內容與註解，
  *       HTML 實體如 &copy;、&#8594; 先解碼），其中每個 CJK 字元都必須
  *       包含在該頁 &text= 參數內；缺字即 FAIL 並列出缺哪些字、在哪個選擇器
+ *  4. 資源預算與引用完整性（2026-07-08 rendering-upgrade P0 新增）：
+ *     - assets/*.js / *.css 未壓縮位元組數不得超過預算表（防效能悄悄回歸）；
+ *       預算表中標記 optional 的檔案「不存在」不算 FAIL（尚未實作的階段），
+ *       但只要存在就必須守預算
+ *     - 頁面上引用的本地 /assets/ 資源（script src、link href）必須實際存在
+ *  5. 外部 origin 白名單（2026-07-08 rendering-upgrade P0 新增）：
+ *     - 所有頁面的 <script src> / <link href> 外部 origin 僅允許
+ *       fonts.googleapis.com、fonts.gstatic.com；其他一律 FAIL（守住零依賴）
  *
  * 檢查範圍與已知限制（改動站台結構前先讀）：
  *  - 「CJK 字元」定義：漢字（U+4E00–9FFF、擴展A U+3400–4DBF、相容區 U+F900–FAFF）、
@@ -491,6 +499,92 @@ if (!fs.existsSync(stylesPath)) {
         .join('；');
       fail(p.rel + ' — &text= 缺 ' + missing.length + ' 字：' + detail);
     }
+  }
+}
+
+// ---------- 4. 資源預算與引用完整性 ----------
+console.log('');
+console.log('=== 4. 資源預算與本地引用完整性 ===');
+
+// 預算為未壓縮位元組數；optional=true 的檔案允許不存在（該階段尚未實作），
+// 但檔案一旦存在就必須守預算。調整門檻請同步更新任務簡報。
+const ASSET_BUDGETS = [
+  { rel: 'assets/render.js', maxBytes: 48 * 1024, optional: true },
+  { rel: 'assets/proof.js',  maxBytes: 12 * 1024, optional: true },
+  { rel: 'assets/main.js',   maxBytes: 16 * 1024, optional: false },
+  { rel: 'assets/styles.css', maxBytes: 44 * 1024, optional: false },
+];
+
+for (const b of ASSET_BUDGETS) {
+  const file = path.join(ROOT, ...b.rel.split('/'));
+  if (!fs.existsSync(file)) {
+    if (b.optional) pass(b.rel + ' — 尚未存在（optional，跳過預算檢查）');
+    else fail(b.rel + ' — 檔案不存在（必要資產）');
+    continue;
+  }
+  const size = fs.statSync(file).size;
+  if (size <= b.maxBytes) {
+    pass(b.rel + ' — ' + size + ' bytes ≤ 預算 ' + b.maxBytes + ' bytes');
+  } else {
+    fail(b.rel + ' — ' + size + ' bytes 超出預算 ' + b.maxBytes + ' bytes（效能護欄；若為刻意擴充請連同任務簡報一起調整）');
+  }
+}
+
+// 頁面引用的本地 /assets/ 資源必須存在（防 script/css 改名或誤刪後靜默 404）
+{
+  const missingRefs = [];
+  for (const p of pages) {
+    const refs = [
+      ...[...p.html.matchAll(/<script\b[^>]*\bsrc\s*=\s*"([^"]+)"/gi)].map((m) => m[1]),
+      ...p.links.map((a) => a.href || ''),
+    ];
+    for (const raw of refs) {
+      const href = decodeEntities(raw);
+      if (!href.startsWith('/')) continue;          // 站外或相對引用另於 §5 檢查
+      const clean = href.split(/[?#]/)[0];
+      const file = path.join(ROOT, ...clean.split('/').filter(Boolean));
+      if (!fs.existsSync(file)) missingRefs.push(p.rel + ' 引用了不存在的 ' + clean);
+    }
+  }
+  if (missingRefs.length === 0) {
+    pass('九頁引用的本地資源全部存在');
+  } else {
+    for (const m of missingRefs) fail(m);
+  }
+}
+
+// ---------- 5. 外部 origin 白名單 ----------
+console.log('');
+console.log('=== 5. 外部 origin 白名單（script src / link href） ===');
+
+const ALLOWED_ORIGINS = new Set(['fonts.googleapis.com', 'fonts.gstatic.com']);
+// 只檢查「會觸發資源抓取／連線」的 link rel；canonical、alternate 等純中繼資料
+// 指向本站 URL，屬 §1 的檢查範圍，不在資源白名單管轄內。
+const FETCHING_RELS = new Set([
+  'stylesheet', 'icon', 'shortcut icon', 'apple-touch-icon', 'manifest',
+  'preload', 'prefetch', 'modulepreload', 'preconnect', 'dns-prefetch',
+]);
+{
+  const offenders = [];
+  for (const p of pages) {
+    const urls = [
+      ...[...p.html.matchAll(/<script\b[^>]*\bsrc\s*=\s*"([^"]+)"/gi)].map((m) => m[1]),
+      ...p.links
+        .filter((a) => FETCHING_RELS.has((a.rel || '').toLowerCase()))
+        .map((a) => a.href || ''),
+    ];
+    for (const raw of urls) {
+      const href = decodeEntities(raw);
+      const m = href.match(/^(?:https?:)?\/\/([^/]+)/i);
+      if (!m) continue;                              // 本地路徑
+      const host = m[1].toLowerCase();
+      if (!ALLOWED_ORIGINS.has(host)) offenders.push(p.rel + ' 引用了白名單外的 origin：' + host + '（' + href + '）');
+    }
+  }
+  if (offenders.length === 0) {
+    pass('所有頁面的外部 origin 僅限 fonts.googleapis.com / fonts.gstatic.com');
+  } else {
+    for (const o of offenders) fail(o);
   }
 }
 
