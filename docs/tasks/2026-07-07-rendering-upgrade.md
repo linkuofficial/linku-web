@@ -1,6 +1,6 @@
 # TASK: rendering-upgrade
-狀態: draft
-建立: 2026-07-07 ｜ 秘書層: claude-fable-5 ｜ 實作層: 未定
+狀態: 實作完成，待跨家族審查＋Vercel preview 實機驗收
+建立: 2026-07-07 ｜ 秘書層: claude-fable-5 ｜ 實作層: claude-fable-5（2026-07-08）
 Repo: web
 Base: main @ eba5d42
 Required verification: node scripts/check.mjs 全 PASS ＋ 本機 http 實看三語×三頁 ＋ Lighthouse 門檻（見驗收）＋ prefers-reduced-motion 實測
@@ -136,10 +136,34 @@ Clarke–Park 三面板版（含站上語彙重製版 `docs/prototypes/p-proof-c
 - P1c 捲動編排對映：Hero 全組件運轉 → Statement 推近核心 → Pillars **工程分解圖（exploded view）逐支柱點亮** → Contact 收攏鎖定＋脈衝。
 
 ## HANDOFF（實作層完成或卡住後填）
-- Branch:
-- Summary:
-- Verification: <跑了哪些命令、結果；P0 基線數字記這裡>
+- Branch: `feat/rendering-upgrade`（6 commits：docs → P0 → P1 → P2 → P3+P4 → P-proof）
+- Summary: P0–P4＋P-proof 全部落地。render.js 承載 C3 productionize 分層管線
+  （L0 星點／L1 軸環機芯 studio 光照＋烘焙 AO＋MSAA＋3 級 bloom＋ACES／L2 吸積粒子），
+  首頁四章節捲動編排（Hero 運轉→Statement 推近→Pillars 分解逐柱點亮→Contact 鎖定脈衝）、
+  內頁 ambient（右上遠景、隨捲動退場）；能力階梯 WebGL2→WebGL1 直繪→2D 靜態；
+  View Transitions＋moderate prerender；grain 動化＋光暈漂移＋text-box-trim＋指向光暈＋
+  hover 語彙統一；證明段 v4 三語進 /technology/（proof.js 固定步進時鐘＋IO 暫停＋
+  reduced-motion 播放鈕）。main.js 14KB→6.4KB。
+- Verification（2026-07-08，localhost:8081 threading server＋Chrome 系 preview）:
+  - `node scripts/check.mjs` 22 項全 PASS（含新 §4 資源預算＋引用完整性、§5 origin 白名單）
+  - 資源（未壓縮）：render.js 47,626B/48K・proof.js 13,323B/14K・main.js 6,353B/16K・styles.css 32,148B/44K
+  - zh 首頁 DOMContentLoaded 176ms（本機）；pipe 模式 60fps tier0；CLS 0.0000（全頁捲動實測）
+  - 實看：三語×三頁共九頁（#still 快照法）＋首頁四章節＋375×812 窄屏 hero/pillars＋
+    #reduce 播放鈕（三語 aria-label）＋intro 凝聚＋語言切換黏性＋首訪轉址（清 storage）
+  - 證明段數值審計（Node 無頭 40 sim-s）：6 次自動跳靶，協同側 0.87–1.32s 安定、
+    常見側窗內安定 —，6/6 全勝＝v3「主要殺傷數字」成立
+  - preview 面板限制：背景分頁 rAF/IO 節流無法看 live 迴圈——照 webgl-verify-pitfalls
+    對策改用 #still（視覺）＋Node 數值審計（邏輯）雙路驗證
 - Remaining risks:
+  - Vercel preview URL 實機手機測試未做（合 main 前必做，brief 原要求）
+  - Lighthouse 分數未跑（本機無 runner）；以 CLS 0.0000＋176ms DCL＋60fps 為替代基線，
+    建議部署 preview 後跑 PageSpeed Insights 補記
+  - Firefox/Safari 未實看（Chrome 系已測）；View Transitions 於 FF＝漸進降級需目視確認
+  - 證明段文案＝v4 草稿（含標題「同樣的硬體，兩種結果。」）待凜空定稿；ja 機翻待母語校稿
+  - prerender×en 首訪轉址：行為等價已論證＋清 storage 實測正常；真機 hover-prerender 建議抽查
+  - 舊 prototype（a/b/c/c2/clarke-park）留本機未入版控，處置待凜空
+  - 手機網址列 resize 對策改為 canvas 100lvh＋幾何永不重建（比 brief 原「<80px 門檻」更徹底），
+    lvh 不支援的舊瀏覽器回退 100vh（僅 buffer 輕微重配置，無視覺跳動）
 
 ## Review（審查層填；盡量用與實作層不同的模型家族）
 - Reviewer: <model>
