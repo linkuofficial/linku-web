@@ -921,12 +921,18 @@
   }
 
   /* ---------------- loop / governance ---------------- */
-  var rafId = 0, prevTs = 0, flip = false, running = false;
+  var rafId = 0, prevTs = 0, flip = false, running = false, seenSet = seen;
   var fpsEMA = 60, lowSince = 0;
   function loop(ts) {
     rafId = requestAnimationFrame(loop);
     var dt = prevTs ? Math.min(0.05, (ts - prevTs) / 1000) : 0.016;
     prevTs = ts;
+    if (!seenSet && introT >= INTRO) {
+      // mark only once the intro has actually been rendered — a prerendered
+      // page (frozen rAF) must not burn the once-per-session intro unseen
+      seenSet = true;
+      try { sessionStorage.setItem('linku_scene', '1'); } catch (e) { }
+    }
     var idle = introT >= INTRO && (ts - lastActive) > 4000;
     flip = !flip;
     if (idle && flip) return; // 30fps while reading
@@ -1046,5 +1052,4 @@
   }
   running = true;
   startLoop();
-  try { sessionStorage.setItem('linku_scene', '1'); } catch (e) { }
 })();

@@ -20,6 +20,28 @@ window.__tweaks = {
 
 /* The brand scene (WebGL gimbal core on #particles) lives in /assets/render.js. */
 
+/* ---------- Speculative prerender of in-site navigation (progressive) ----------
+   moderate = prerender on hover/pointerdown. Language-switch links are left
+   out on purpose: the en pages carry the first-visit routing script, and
+   prerendering a page that may location.replace() is wasted work. */
+(function () {
+  try {
+    if (!(window.HTMLScriptElement && HTMLScriptElement.supports && HTMLScriptElement.supports('speculationrules'))) return;
+    var urls = [];
+    document.querySelectorAll('.nav-links a, .brand, .more-link').forEach(function (a) {
+      var href = a.getAttribute('href') || '';
+      if (href.charAt(0) !== '/' || href.indexOf('#') >= 0) return;
+      if (href === location.pathname) return;
+      if (urls.indexOf(href) < 0) urls.push(href);
+    });
+    if (!urls.length) return;
+    var s = document.createElement('script');
+    s.type = 'speculationrules';
+    s.textContent = JSON.stringify({ prerender: [{ urls: urls, eagerness: 'moderate' }] });
+    document.body.appendChild(s);
+  } catch (e) {}
+})();
+
 /* ---------- Custom dot cursor ---------- */
 (function () {
   const dot = document.querySelector('.cursor-dot');
