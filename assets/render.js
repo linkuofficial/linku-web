@@ -24,6 +24,7 @@
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
     || HASH === '#reduce' || STILL;
   var HOME = !!document.querySelector('[data-screen-label="Hero"]');
+  var INNER = !HOME; // inner pages (about/technology): pure deep space, no machine
 
   // Heavy init (geometry+AO bake+GL, tens of ms on weak mobiles) runs on the
   // first animation frame, off the parse path (no DCL block / long task).
@@ -798,15 +799,15 @@
         st.partSpeed = 1 + 2.2 * pulse;
       }
     } else {
-      for (k in AMBIENT) st[k] = AMBIENT[k];
-      // recede while reading: deep-scrolled inner pages dim the machine well
-      // below any foreground content (e.g. the /technology/ proof canvas)
-      var dim = Math.min(1, (window.scrollY || 0) / (innerHeight * 1.8));
-      st.exp -= 0.18 * dim;
-      st.core -= 0.25 * dim;
-      st.glow -= 0.30 * dim;
-      st.sig = 0.03 + 0.04 * (0.5 + 0.5 * Math.sin(simT * 0.5));
-      st.servoRate = 0.55;
+      // inner pages: pure deep space — drifting starfield + a soft central
+      // glow, no machine. The gimbal core is the homepage hero's alone; inner
+      // pages must not put a second heavy visual behind their content (proof
+      // canvas, body copy). cam values are inert here (no mesh is drawn).
+      st.cx = 0; st.cy = 0; st.cz = -4;
+      st.core = 0; st.sig = 0; st.env = 1;
+      st.glow = 0.5; st.exp = 0.72;
+      st.servoRate = 0; st.partSpeed = 0;
+      st.inner = true;
     }
     st.env = st.env || 1;
     st.servoRate = st.servoRate || 1;
@@ -831,9 +832,14 @@
     st.exp *= 1 - 0.05 * pf;
 
     st.aoMix = Math.min(0.75, st.ex * 0.75);
-    // stage glow follows the machine's screen position
-    glowUV[0] = 0.5 + 0.5 * (FOVF / asp) * st.cx / (-st.cz);
-    glowUV[1] = 0.5 + 0.5 * FOVF * st.cy / (-st.cz);
+    // stage glow follows the machine's screen position (homepage); inner pages
+    // keep a fixed, gently-high central glow behind the deep-space starfield
+    if (st.inner) {
+      glowUV[0] = 0.5; glowUV[1] = 0.42;
+    } else {
+      glowUV[0] = 0.5 + 0.5 * (FOVF / asp) * st.cx / (-st.cz);
+      glowUV[1] = 0.5 + 0.5 * FOVF * st.cy / (-st.cz);
+    }
     return st;
   }
 
@@ -911,8 +917,10 @@
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
     bindPoints();
-    gl.uniformMatrix3fv(Q.u.uRot, false, G);
-    gl.drawArrays(gl.POINTS, 0, drawNP);
+    if (!INNER) {                       // accretion belongs to the homepage machine
+      gl.uniformMatrix3fv(Q.u.uRot, false, G);
+      gl.drawArrays(gl.POINTS, 0, drawNP);
+    }
     // stars: damped parallax + imperceptible drift
     var Gs = mul3(ry(0.42 + cmx * 0.14 + simT * 0.004), rx(-0.52 + cmy * 0.09));
     gl.uniformMatrix3fv(Q.u.uRot, false, Gs);
@@ -926,7 +934,7 @@
     var st = computeState(dt);
     var aOut = servoTick(svOut, dt * st.servoRate, st.hold);
     var aIn = servoTick(svIn, dt * st.servoRate, st.hold);
-    updateParticles(dt, st);
+    if (!INNER) updateParticles(dt, st); // no accretion on inner pages
 
     if (MODE === 'pipe') {
       gl.bindFramebuffer(gl.FRAMEBUFFER, msaaOK ? fbo.ms : fbo.scene.f);
@@ -934,7 +942,7 @@
       gl.enable(gl.DEPTH_TEST);
       gl.clearColor(0.030, 0.030, 0.033, 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      var G = drawScene(st, aOut, aIn);
+      var G = INNER ? null : drawScene(st, aOut, aIn); // no machine on inner pages
       drawPoints(st, G);
       gl.disable(gl.DEPTH_TEST);
       if (msaaOK) {
@@ -955,7 +963,7 @@
         if (set) set(pr);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
-      var doBloom = !bloomOff;
+      var doBloom = !bloomOff && !INNER; // stars need no bloom; keeps inner pages light
       if (doBloom) {
         pass(P.bright, fbo.bright, [['uTex', fbo.scene.t]]);
         pass(P.blur, fbo.b0a, [['uTex', fbo.bright.t]], function (pr) { gl.uniform2f(pr.u.uDir, 1 / fbo.bright.w, 0); });
@@ -985,7 +993,7 @@
       gl.enable(gl.DEPTH_TEST);
       gl.clearColor(0.0175, 0.0205, 0.0274, 1); // scene bg after the same tone curve
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      var G2 = drawScene(st, aOut, aIn);
+      var G2 = INNER ? null : drawScene(st, aOut, aIn); // no machine on inner pages
       drawPoints(st, G2);
       gl.disable(gl.DEPTH_TEST);
     }

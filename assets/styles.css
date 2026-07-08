@@ -1540,9 +1540,50 @@ html[lang="ja"] .more-link {
   letter-spacing: 0.12em;
 }
 
-/* ---------- Narrow screens: drop anchor nav, keep brand + language switch ---------- */
+/* ---------- Narrow screens: keep page-switch links visible ----------
+   Previously the anchor links were hidden here, leaving no way to change
+   page on a phone. Instead: condense them to fit, drop the difference blend
+   (which made them vanish against the scene), and scrim the text so brand,
+   links and the language switch stay legible over any background. */
 @media (max-width: 520px) {
+  nav {
+    mix-blend-mode: normal;
+    padding: 24px 20px;
+  }
+
+  .brand {
+    letter-spacing: 0.3em;
+    text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
+  }
+
+  .nav-right {
+    gap: 14px;
+  }
+
   .nav-links {
+    gap: 12px;
+  }
+
+  .nav-links a {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: rgba(232, 230, 224, 0.72);
+    text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
+  }
+
+  .nav-links a:hover {
+    color: var(--cream);
+  }
+
+  .lang-switch a,
+  .lang-switch .sep {
+    text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
+  }
+}
+
+/* Tiny screens: in-page anchors (e.g. Work) yield to the real page links */
+@media (max-width: 380px) {
+  .nav-links a[href^="#"] {
     display: none;
   }
 }
