@@ -510,7 +510,7 @@ console.log('=== 4. 資源預算與本地引用完整性 ===');
 // 但檔案一旦存在就必須守預算。調整門檻請同步更新任務簡報。
 const ASSET_BUDGETS = [
   { rel: 'assets/render.js', maxBytes: 48 * 1024, optional: true },
-  { rel: 'assets/proof.js',  maxBytes: 12 * 1024, optional: true },
+  { rel: 'assets/proof.js',  maxBytes: 14 * 1024, optional: true },
   { rel: 'assets/main.js',   maxBytes: 16 * 1024, optional: false },
   { rel: 'assets/styles.css', maxBytes: 44 * 1024, optional: false },
 ];

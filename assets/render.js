@@ -732,8 +732,12 @@
       }
     } else {
       for (k in AMBIENT) st[k] = AMBIENT[k];
-      var dim = Math.min(1, (window.scrollY || 0) / (innerHeight * 1.5));
-      st.exp -= 0.10 * dim;
+      // recede while reading: deep-scrolled inner pages dim the machine well
+      // below any foreground content (e.g. the /technology/ proof canvas)
+      var dim = Math.min(1, (window.scrollY || 0) / (innerHeight * 1.8));
+      st.exp -= 0.18 * dim;
+      st.core -= 0.25 * dim;
+      st.glow -= 0.30 * dim;
       st.sig = 0.03 + 0.04 * (0.5 + 0.5 * Math.sin(simT * 0.5));
       st.servoRate = 0.55;
     }

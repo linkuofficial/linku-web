@@ -144,6 +144,43 @@
       </div>
     </section>
 
+    <!-- PROOF: two identical simulated plants, one variable — the algorithm.
+         Copy is a working draft (final wording pending review). -->
+    <section class="proof section-pad" id="proof" data-screen-label="Proof">
+      <div class="label reveal">Proof</div>
+      <h2 class="proof-title reveal">Same hardware, two outcomes.</h2>
+      <p class="proof-sub reveal">Left and right are two identical simulated machines — same target, same disturbance. The left runs the common approach: a fixed-gain PID. The right deploys public best practice, correctly, on the same inexpensive hardware. That is what we mean by letting the whole system outperform conventional approaches on comparable hardware. Faster settling means a faster line; smaller error means cheaper mechanics and sensing can hit spec.</p>
+      <p class="proof-same reveal" aria-hidden="true">
+        <span>Same motor model</span><span class="sep">&middot;</span>
+        <span>Same torque limit</span><span class="sep">&middot;</span>
+        <span>Same encoder &amp; loop rate</span><span class="sep">&mdash;</span>
+        <span>the only difference: <span class="only">the algorithm</span></span>
+      </p>
+      <div class="proof-stage reveal">
+        <canvas id="proof-canvas" data-l-settle="settling"
+          aria-label="Two identical simulated axes track the same target. Left: common control, slow and jittery with overshoot. Right: co-designed control, fast and steady. The thin lines below trace each side's error over time."></canvas>
+        <div class="proof-caps">
+          <div class="proof-cap"><span>Common practice</span><output id="proof-r0">RMS —</output><output id="proof-s0">settling —</output></div>
+          <div class="proof-cap linku"><span>Co-designed</span><output id="proof-r1">RMS —</output><output id="proof-s1">settling —</output></div>
+        </div>
+      </div>
+      <p class="proof-hint">Move the cursor to move the target &middot; Click to hit both sides with the same disturbance &middot; The thin line below traces error over time — flatter is better</p>
+      <button id="proof-play" class="proof-play" hidden type="button" data-play="Play animation" data-pause="Pause">Play animation</button>
+      <details class="proof-details">
+        <summary class="proof-summary">For engineers: model &amp; parameters</summary>
+        <div class="proof-spec">
+          <b>Plant (identical)</b>&#8195;J&middot;&#952;&#776; = &#964; &#8722; b&middot;&#952;&#775; + d(t), J = 1, b = 0.15, |&#964;| &#8804; 6; 240 Hz loop, 1-tick sensing latency (both sides)<br>
+          <b>Sensing (identical)</b>&#8195;encoder quantization 1.5&#176; (&#8776;240 CPR), Gaussian noise &#963; = 0.5&#176;; both sides consume the same noise sequence (common random numbers)<br>
+          <b>Common practice (the status quo)</b>&#8195;fixed-gain PID, Ziegler&#8211;Nichols-style tuning: &#964; = 9&middot;e + &#8747;5&middot;e &#8722; 1.5&middot;&#234;&#775;; velocity by encoder differencing (noise passes straight into the D term); crude integral clamp (|I| &#8804; 0.6&middot;&#964;max) &#8594; windup on large steps; raw step commands &#8212; no trajectory, no feedforward, no model<br>
+          <b class="o">Co-designed (public best practice, deployed correctly)</b>&#8195;steady-state Kalman (&#945;&#8211;&#946;) estimate + one-tick forward prediction; near-time-optimal velocity governor (PTOS: v &#8804; &#8730;(2a&middot;e) far out, linear terminal zone near; a &#8804; 0.8&middot;&#964;max/J keeps feedback headroom); model feedforward &#964;ff = J&middot;a_ref + b&middot;&#969;_ref; momentum disturbance observer (&#969; &#8776; 12 rad/s) estimates and cancels external torque; feedback &#964;fb = 40&middot;(&#952;ref&#8722;&#952;&#770;) + 11&middot;(&#969;ref&#8722;&#969;&#770;), &#950; &#8776; 0.87<br>
+          <b>Disturbance</b>&#8195;click = equal impulse torque to both sides; ambient torque noise is continuous and shared<br>
+          <b>Statistics</b>&#8195;RMS = error vs the final target over the last 4 s; settling = first entry into the &#177;2&#176; band held for 0.3 s<br>
+          <b>Statement</b>&#8195;everything on the right is public, textbook-grade technique; the gap comes from correct deployment and tuning, not secrets &#8212; that is software&#8211;hardware co-design
+        </div>
+      </details>
+      <p class="proof-note">Simulated illustration, not measured data &middot; Both sides share one target, one disturbance, one noise sequence &middot; Honors prefers-reduced-motion; pauses off-screen</p>
+    </section>
+
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
       <div class="label reveal">Contact</div>
       <h2 class="contact-big reveal">Get in touch.</h2>
@@ -161,6 +198,7 @@
 
   <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>
+  <script src="/assets/proof.js"></script>
 
 </body>
 

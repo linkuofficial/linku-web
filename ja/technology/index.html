@@ -49,7 +49,7 @@
        If you add/change copy, update the &text= string below; missing glyphs
        quietly fall back to the system CJK font (no broken layout). -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&text=ホーム。プロジェクト。概要。お問い合わせ。技術。課題に、ちょうどよい知能を。LINKUは、AIと制御を小さな機械に統合します——現場のために設計し、その場で動作し、時とともに進化します。専用設計。あらゆるシステムを、単一の課題のために設計します。センサーからモデルまで現場に合わせて調整し、実際のニーズと制約に寄り添い、変化に応じて調整を続けます。その場で動作。演算と判断は機器の上でその場で完結します。クラウドへの往復も、通信の待ち時間もありません。応答は即時で、オフラインでも安定して動作し、データは手元に留まります——即時性とセキュリティが求められる現場での要となる価値です。設計による価値。性能は、ハードウェアの仕様だけで決まるものではありません。ハードウェアとソフトウェアの協調設計により、ソフトウェアがハードウェアの力を引き出し、適切な投資から仕様を超える性能を生み出します。私たちが届けるのは、本質的な価値です。使うほど賢く。配備後も、システムは現実の現場から学び続け、判断は日々精緻になり、環境への適合も深まります。動かすほどに、価値は高まります。つくろう。より賢くしたい現場の課題、あるいは協業のご相談があれば、お気軽にご連絡ください。人工知能 × 物理世界。&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&text=ホーム。プロジェクト。概要。お問い合わせ。技術。課題に、ちょうどよい知能を。LINKUは、AIと制御を小さな機械に統合します——現場のために設計し、その場で動作し、時とともに進化します。専用設計。あらゆるシステムを、単一の課題のために設計します。センサーからモデルまで現場に合わせて調整し、実際のニーズと制約に寄り添い、変化に応じて調整を続けます。その場で動作。演算と判断は機器の上でその場で完結します。クラウドへの往復も、通信の待ち時間もありません。応答は即時で、オフラインでも安定して動作し、データは手元に留まります——即時性とセキュリティが求められる現場での要となる価値です。設計による価値。性能は、ハードウェアの仕様だけで決まるものではありません。ハードウェアとソフトウェアの協調設計により、ソフトウェアがハードウェアの力を引き出し、適切な投資から仕様を超える性能を生み出します。私たちが届けるのは、本質的な価値です。使うほど賢く。配備後も、システムは現実の現場から学び続け、判断は日々精緻になり、環境への適合も深まります。動かすほどに、価値は高まります。つくろう。より賢くしたい現場の課題、あるいは協業のご相談があれば、お気軽にご連絡ください。人工知能 × 物理世界。同ふ果左右っミレョ・目標追外乱受般法（固ゲ）公開ベ正装こ「等回全体」意味速誤差構満カ移＝　ッ両側下細線推平良限エコダ周期唯違：ゴ向パメ証&display=swap"
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
@@ -147,6 +147,43 @@
       </div>
     </section>
 
+    <!-- PROOF 実証セクション：同一のシミュレーション・ハードウェア×2、唯一の変数＝アルゴリズム。
+         注意：以下の日本語は機械翻訳ベースの草稿です。公開前にネイティブによる校正を推奨します。 -->
+    <section class="proof section-pad" id="proof" data-screen-label="Proof">
+      <div class="label reveal">実証</div>
+      <h2 class="proof-title reveal">同じハードウェア、ふたつの結果。</h2>
+      <p class="proof-sub reveal">左右はまったく同じシミュレーション・ハードウェアです。同じ目標を追い、同じ外乱を受けます。左は一般的な手法（固定ゲイン PID）、右は公開されているベストプラクティスを同じ安価なハードウェアへ正しく実装したもの——これが「同等のハードウェアで一般的な手法を上回る全体性能」の意味です。整定が速いほどタクトは上がり、誤差が小さいほど、より安価な機構とセンサーで仕様を満たせます。</p>
+      <p class="proof-same reveal" aria-hidden="true">
+        <span>同じモーターモデル</span><span class="sep">&middot;</span>
+        <span>同じトルク上限</span><span class="sep">&middot;</span>
+        <span>同じエンコーダーと制御周期</span><span class="sep">&mdash;</span>
+        <span>唯一の違い：<span class="only">アルゴリズム</span></span>
+      </p>
+      <div class="proof-stage reveal">
+        <canvas id="proof-canvas" data-l-settle="整定"
+          aria-label="同一のシミュレーション軸が同じ目標を追跡します。左は一般的な制御（遅く、オーバーシュートし、震える）、右は協調設計の制御（速く、安定）。下の細い線は両側の誤差の時間推移です。"></canvas>
+        <div class="proof-caps">
+          <div class="proof-cap"><span>一般的な手法</span><output id="proof-r0">RMS —</output><output id="proof-s0">整定 —</output></div>
+          <div class="proof-cap linku"><span>協調設計</span><output id="proof-r1">RMS —</output><output id="proof-s1">整定 —</output></div>
+        </div>
+      </div>
+      <p class="proof-hint">カーソル移動＝目標の移動　&middot;　クリック＝両側へ同時に外乱　&middot;　下の細い線＝誤差の時間推移（平らなほど良い）</p>
+      <button id="proof-play" class="proof-play" hidden type="button" data-play="アニメーション再生" data-pause="一時停止">アニメーション再生</button>
+      <details class="proof-details">
+        <summary class="proof-summary">エンジニア向け：モデルとパラメータ</summary>
+        <div class="proof-spec">
+          <b>制御対象（両側同一）</b>&#8195;J&middot;&#952;&#776; = &#964; &#8722; b&middot;&#952;&#775; + d(t)、J = 1、b = 0.15、|&#964;| &#8804; 6；制御周期 240 Hz、センシング遅延 1 サンプル（両側同一）<br>
+          <b>センシング（両側同一）</b>&#8195;エンコーダー量子化 1.5&#176;（&#8776;240 CPR）、ガウス雑音 &#963; = 0.5&#176;；両側は同一の雑音系列を使用（common random numbers）<br>
+          <b>一般的な手法（現状の実態）</b>&#8195;固定ゲイン PID（Ziegler&#8211;Nichols 風の調整）：&#964; = 9&middot;e + &#8747;5&middot;e &#8722; 1.5&middot;&#234;&#775;；速度＝エンコーダー差分（雑音が D 項へ直通）；積分は粗い制限のみ（|I| &#8804; 0.6&middot;&#964;max）&#8594; 大きなステップでワインドアップ；ステップ指令を直接入力、軌道・フィードフォワード・モデルなし<br>
+          <b class="o">協調設計（公開ベストプラクティスの正しい実装）</b>&#8195;定常カルマン（&#945;&#8211;&#946;)推定＋1 サンプル先読み予測；準時間最適速度ガバナー（PTOS：遠方 v &#8804; &#8730;(2a&middot;e)、近傍は線形終端、a &#8804; 0.8&middot;&#964;max/J でフィードバック余裕を確保）；モデルフィードフォワード &#964;ff = J&middot;a_ref + b&middot;&#969;_ref；運動量式外乱オブザーバー（&#969; &#8776; 12 rad/s）が外部トルクを推定・相殺；フィードバック &#964;fb = 40&middot;(&#952;ref&#8722;&#952;&#770;) + 11&middot;(&#969;ref&#8722;&#969;&#770;)、&#950; &#8776; 0.87<br>
+          <b>外乱</b>&#8195;クリック＝両側へ同量の衝撃トルクを同時注入；環境外乱は連続の微小トルク雑音（系列共有）<br>
+          <b>統計</b>&#8195;RMS＝直近 4 秒間の最終目標に対する誤差の実効値；整定＝イベント後に &#177;2&#176; 帯へ入り 0.3 s 留まるまでの時間<br>
+          <b>声明</b>&#8195;右側はすべて公開された教科書級の技術です。差は秘密ではなく、正しい実装と調整から生まれます——それが協調設計の意味です
+        </div>
+      </details>
+      <p class="proof-note">シミュレーションによる図示であり、実測データではありません &middot; 両側は同一の目標・外乱・雑音系列を共有 &middot; prefers-reduced-motion を尊重し、画面外では自動停止</p>
+    </section>
+
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
       <div class="label reveal">お問い合わせ</div>
       <h2 class="contact-big reveal">ご連絡ください。</h2>
@@ -164,6 +201,7 @@
 
   <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>
+  <script src="/assets/proof.js"></script>
 
 </body>
 

@@ -48,7 +48,7 @@
        If you add/change copy, update the &text= string below; missing glyphs
        quietly fall back to the system CJK font (no broken layout). -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&text=首頁。專案。關於。聯絡。技術。為真實任務，打造恰如其分的智慧。LINKU 將 AI 與控制整合於小巧的機器——為場景而生，於現場即時運作，並隨時間持續精進。量身打造。每一套系統都為單一任務量身打造，自感測到模型皆依場景調校，貼合實際的需求與限制，並隨需求演進而持續調整。就地運作。運算與決策皆於裝置端即時完成，無需上傳雲端或等待網路往返；即便連線不穩或離線，仍穩定可靠，資料亦始終留存本地——對講求即時反應與資料安全的場域，這是關鍵價值。高性價比。性能，未必由硬體規格決定。透過軟硬協同設計、以軟體釋放硬體的潛力，讓合理的投入發揮出超乎規格的表現。我們交付的，是整體效益。越用越強。系統在部署後，持續從真實場景中學習，判斷日益精準，亦愈加貼合所處環境。運行愈久，價值愈高。一起打造吧。想讓某項現場任務更聰明，或探索合作？歡迎來信。人工智慧 × 物理世界。聯繫我們。&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&text=首頁。專案。關於。聯絡。技術。為真實任務，打造恰如其分的智慧。LINKU 將 AI 與控制整合於小巧的機器——為場景而生，於現場即時運作，並隨時間持續精進。量身打造。每一套系統都為單一任務量身打造，自感測到模型皆依場景調校，貼合實際的需求與限制，並隨需求演進而持續調整。就地運作。運算與決策皆於裝置端即時完成，無需上傳雲端或等待網路往返；即便連線不穩或離線，仍穩定可靠，資料亦始終留存本地——對講求即時反應與資料安全的場域，這是關鍵價值。高性價比。性能，未必由硬體規格決定。透過軟硬協同設計、以軟體釋放硬體的潛力，讓合理的投入發揮出超乎規格的表現。我們交付的，是整體效益。越用越強。系統在部署後，持續從真實場景中學習，判斷日益精準，亦愈加貼合所處環境。運行愈久，價值愈高。一起打造吧。想讓某項現場任務更聰明，或探索合作？歡迎來信。人工智慧 × 物理世界。聯繫我們。樣兩種結果左右相擬追個目標吃記干擾邊跑常見法（固增）把公開最佳正確顆宜說：般方快＝節拍誤差構達移動游　點擊施下細軌跡平好馬矩編碼迴頻率唯給程師參數證&display=swap"
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
@@ -146,6 +146,43 @@
       </div>
     </section>
 
+    <!-- PROOF 證明段：兩套相同模擬硬體，唯一變因＝演算法。
+         文案為 v4 草稿，最終措辭待定稿。 -->
+    <section class="proof section-pad" id="proof" data-screen-label="Proof">
+      <div class="label reveal">實證</div>
+      <h2 class="proof-title reveal">同樣的硬體，兩種結果。</h2>
+      <p class="proof-sub reveal">左右是兩套完全相同的模擬硬體，追同一個目標、吃同一記干擾。左邊跑常見作法（固定增益 PID），右邊把公開的最佳實務正確地部署進同一顆便宜硬體——這就是我們說的：讓整體系統超越同等硬體的一般方案。更快的安定＝更高的節拍；更小的誤差＝更便宜的機構與感測就能達標。</p>
+      <p class="proof-same reveal" aria-hidden="true">
+        <span>相同馬達模型</span><span class="sep">&middot;</span>
+        <span>相同力矩上限</span><span class="sep">&middot;</span>
+        <span>相同編碼器與迴路頻率</span><span class="sep">&mdash;</span>
+        <span>唯一不同：<span class="only">演算法</span></span>
+      </p>
+      <div class="proof-stage reveal">
+        <canvas id="proof-canvas" data-l-settle="安定"
+          aria-label="兩個相同的模擬轉軸追蹤同一目標：左為常見控制（慢、過衝、抖動），右為軟硬協同控制（快而穩）；下方細線為兩側誤差的時間軌跡"></canvas>
+        <div class="proof-caps">
+          <div class="proof-cap"><span>常見作法</span><output id="proof-r0">RMS —</output><output id="proof-s0">安定 —</output></div>
+          <div class="proof-cap linku"><span>軟硬協同</span><output id="proof-r1">RMS —</output><output id="proof-s1">安定 —</output></div>
+        </div>
+      </div>
+      <p class="proof-hint">移動游標＝移動目標　&middot;　點擊＝同時對兩邊施加干擾　&middot;　下方細線＝誤差的時間軌跡（越平越好）</p>
+      <button id="proof-play" class="proof-play" hidden type="button" data-play="播放動畫" data-pause="暫停動畫">播放動畫</button>
+      <details class="proof-details">
+        <summary class="proof-summary">給工程師：模型與參數</summary>
+        <div class="proof-spec">
+          <b>受控體（兩側相同）</b>&#8195;J&middot;&#952;&#776; = &#964; &#8722; b&middot;&#952;&#775; + d(t)，J = 1，b = 0.15，|&#964;| &#8804; 6；迴路 240 Hz、感測延遲 1 拍（兩側相同）<br>
+          <b>感測（兩側相同）</b>&#8195;編碼器量化 1.5&#176;（&#8776;240 CPR），高斯雜訊 &#963; = 0.5&#176;；兩側共用同一雜訊序列（common random numbers）<br>
+          <b>常見作法（真實現狀）</b>&#8195;固定增益 PID（Ziegler&#8211;Nichols 風格整定）：&#964; = 9&middot;e + &#8747;5&middot;e &#8722; 1.5&middot;&#234;&#775;；速度＝編碼器差分（雜訊直通 D 項）；積分僅粗暴限幅（|I| &#8804; 0.6&middot;&#964;max）&#8594; 大步階仍有飽和積分暴衝；階躍指令直接餵，無軌跡、無前饋、無模型<br>
+          <b class="o">軟硬協同（公開最佳實務的正確部署）</b>&#8195;穩態卡爾曼（&#945;&#8211;&#946;）估測＋一拍前向預測；近似時間最優速度 governor（PTOS：遠處 v &#8804; &#8730;(2a&middot;e)、近處線性終端，a &#8804; 0.8&middot;&#964;max/J，留回授餘裕）；模型前饋 &#964;ff = J&middot;a_ref + b&middot;&#969;_ref；動量式擾動觀測器（&#969; &#8776; 12 rad/s）估測並抵消外力矩；回授 &#964;fb = 40&middot;(&#952;ref&#8722;&#952;&#770;) + 11&middot;(&#969;ref&#8722;&#969;&#770;)，&#950; &#8776; 0.87<br>
+          <b>干擾</b>&#8195;點擊＝對兩側同時注入等量衝擊力矩；環境擾動為連續小雜訊力矩（共用序列）<br>
+          <b>統計</b>&#8195;RMS＝最近 4 秒對最終目標的誤差均方根；安定＝事件後首次進入 &#177;2&#176; 帶並停留 0.3 s 的時間<br>
+          <b>聲明</b>&#8195;右側全部為公開教科書級技術；差距不靠祕密，靠正確的部署與整定——這正是軟硬協同的意義
+        </div>
+      </details>
+      <p class="proof-note">模擬示意，非量測資料 &middot; 兩側共用同一目標、同一干擾與同一雜訊序列 &middot; 尊重 prefers-reduced-motion，離屏自動暫停</p>
+    </section>
+
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
       <div class="label reveal">聯絡</div>
       <h2 class="contact-big reveal">聯繫我們。</h2>
@@ -163,6 +200,7 @@
 
   <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>
+  <script src="/assets/proof.js"></script>
 
 </body>
 
