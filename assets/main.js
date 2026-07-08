@@ -83,6 +83,18 @@ window.__tweaks = {
   });
 })();
 
+/* ---------- Pointer glow on list rows (pillars / tech items) ---------- */
+(function () {
+  if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  document.querySelectorAll('.pillar, .tech-item').forEach(function (el) {
+    el.addEventListener('pointermove', function (e) {
+      var r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(2) + '%');
+      el.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100).toFixed(2) + '%');
+    }, { passive: true });
+  });
+})();
+
 /* ---------- Scroll reveal ---------- */
 (function () {
   const els = document.querySelectorAll('.reveal');
