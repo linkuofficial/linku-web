@@ -166,10 +166,19 @@ Clarke–Park 三面板版（含站上語彙重製版 `docs/prototypes/p-proof-c
     lvh 不支援的舊瀏覽器回退 100vh（僅 buffer 輕微重配置，無視覺跳動）
 
 ## Review（審查層填；盡量用與實作層不同的模型家族）
-- Reviewer: <model>
-- 模式: ②測試互寫 | ③對抗驗證 | ④雙診斷 | ⑤雙提案
-- 觸發原因: <路徑觸發(強制) | 實作模型自判(附原因) | 凜空手動>
-- Verdict: approve | fix-needed
+### 內圈預審（cross-fire §0 步驟 0，2026-07-08，claude-fable-5 自審）
+- 8 視角並行 finder（逐行／刪除行為／跨檔追蹤／重用／簡化／效率／深度／規範）
+  → 40 候選 → 25 項確認修復（commit 3c4a656），4 真 bug：120Hz 時鐘 2×速、
+  閒置半速、demote 用 pipe shader 輸出未調色 HDR、FBO 完整性查錯對象；
+  3 項駁回（刻意設計）、2 項延後（portrait 構圖宣告式化、cream 變數化）。
+- 修復後全部重驗：check.mjs 22 PASS、數值審計 6/6＋120Hz 1:1、
+  瀏覽器矩陣（章節／reduce 鈕／#still／proof）、視覺一致。
+
+### 跨家族交叉（Codex，待凜空貼包）
+- Reviewer: <codex — packet 已產，見 HANDOFF>
+- 模式: ③對抗驗證
+- 觸發原因: 路徑觸發（風險等級 中·三角測量）
+- Verdict: <待審>
 - Findings:
   -
 
