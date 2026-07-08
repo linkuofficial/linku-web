@@ -117,7 +117,9 @@ body::before {
 body::after {
   content: '';
   position: fixed;
-  inset: -75%;
+  /* bleed just past the largest grainShift offset (~3.9vw) — a bigger layer
+     only costs compositor memory (it is promoted by will-change) */
+  inset: -12%;
   z-index: 1;
   pointer-events: none;
   opacity: 0.05;
@@ -1148,7 +1150,7 @@ html[lang="en"] .pillar-title {
     opacity: 0;
     transition: opacity 0.5s ease;
     background: radial-gradient(240px 170px at var(--mx, 50%) var(--my, 50%),
-        rgba(232, 180, 120, 0.05), transparent 70%);
+        color-mix(in srgb, var(--amber) 5%, transparent), transparent 70%);
   }
 
   .pillar:hover::after,
@@ -1309,9 +1311,12 @@ footer {
   }
 }
 
-/* Narrow screens: small copy inevitably crosses the scene's glow — a dark
-   halo keeps it readable without visibly changing it on the plain background. */
-@media (max-width: 700px) {
+/* Narrow or squarish viewports: small copy inevitably crosses the scene's
+   glow — a dark halo keeps it readable without visibly changing it on the
+   plain background. The aspect clause mirrors the scene's own portrait
+   dimming (render.js pf ramp at aspect < 1.05), so the two contrast aids
+   engage together instead of on unrelated triggers. */
+@media (max-width: 700px), (max-aspect-ratio: 21/20) {
 
   .hero-sub,
   .statement-fact,

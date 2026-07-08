@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+# internal briefs & rendering prototypes ship with the repo - keep them out of crawls
+Disallow: /docs/
 
 Sitemap: https://linku.tech/sitemap.xml

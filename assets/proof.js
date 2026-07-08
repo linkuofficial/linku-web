@@ -4,8 +4,8 @@
    sequence. Left: fixed-gain PID on raw differenced encoder signals.
    Right: Kalman + one-tick prediction, PTOS governor, feedforward, DOB.
    Text lives in the DOM (i18n); canvas draws geometry only. Honors
-   prefers-reduced-motion (+ play toggle), pauses off-screen, fixed-step
-   sim clock (tab-throttle immune). #still swaps in a static image.
+   prefers-reduced-motion (+ play toggle), pauses off-screen; wall-clock
+   accumulator stepped in fixed DT chunks. #still swaps a static image.
    ============================================================ */
 (function () {
   'use strict';
@@ -16,6 +16,14 @@
 
   var TAU = Math.PI * 2, D2R = Math.PI / 180, R2D = 180 / Math.PI;
   function wrap(a) { return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
+
+  // solid palette tokens come from the stylesheet (single source of truth)
+  var rootCss = getComputedStyle(document.documentElement);
+  function tok(name, fb) { var v = rootCss.getPropertyValue(name).trim(); return v || fb; }
+  var CREAM = tok('--cream', '#e8e6e0'), MUTED = tok('--muted', '#6a6a6a');
+  var STEEL = tok('--steel', '#8194ab'), ORDER = tok('--amber', '#e8b478');
+  var ORDER_HI = '#f7d9a8', LINE = 'rgba(232,230,224,.12)';
+  var STEEL_D = 'rgba(129,148,171,', ORDER_D = 'rgba(232,180,120,';
 
   /* ---------------- identical "hardware" ---------------- */
   var J = 1.0, B = 0.15, TMAX = 6.0;
@@ -48,7 +56,9 @@
     var m = Math.round((side.th + n * NOISE) / QUANT) * QUANT;
     side.measBuf.push(m);
     if (side.measBuf.length > LAT + 6) side.measBuf.shift();
-    return side.measBuf[Math.max(0, side.measBuf.length - 1 - LAT)];
+    // one place owns the latency indexing — both controllers read this tick
+    side.lagIdx = Math.max(0, side.measBuf.length - 1 - LAT);
+    return side.measBuf[side.lagIdx];
   }
 
   function stepSide(side, dt, n, distT) {
@@ -59,7 +69,7 @@
          (noise passes straight into D), crude integral clamp (windup on
          large steps), raw step commands — no trajectory, no model */
       var buf = side.measBuf;
-      var i = Math.max(0, buf.length - 1 - LAT);
+      var i = side.lagIdx;
       var iPrev = Math.max(0, i - 3);
       var vel = wrap(buf[i] - buf[iPrev]) / (dt * (i - iPrev || 1));
       var e = wrap(target - mLag);
@@ -145,10 +155,6 @@
     BY = Hc * 0.76; BH = Hc * 0.15; BW = Math.min(Wc * 0.34, 460);
   }
 
-  var CREAM = '#e8e6e0', LINE = 'rgba(232,230,224,.12)', MUTED = '#6a6a6a';
-  var STEEL = '#8194ab', STEEL_D = 'rgba(129,148,171,';
-  var ORDER = '#e8b478', ORDER_HI = '#f7d9a8', ORDER_D = 'rgba(232,180,120,';
-
   var HIST = 240; // ~4 s of error history
   function record(t) {
     S.forEach(function (s) {
@@ -213,8 +219,8 @@
     ctx.globalAlpha = 1;
     var h = side.errHist, n = h.length;
     if (n < 2) return;
+    // no shadowBlur: canvas shadows force a slow blur pass per stroke
     ctx.strokeStyle = i ? ORDER : STEEL; ctx.lineWidth = 1.3;
-    if (i) { ctx.shadowColor = ORDER_D + '0.35)'; ctx.shadowBlur = 6; }
     ctx.beginPath();
     for (var k = 0; k < n; k++) {
       var x = x0 + BW - (n - 1 - k) * (BW / (HIST - 1));
@@ -222,7 +228,6 @@
       if (k) ctx.lineTo(x, y); else ctx.moveTo(x, y);
     }
     ctx.stroke();
-    ctx.shadowBlur = 0;
   }
 
   var R0 = document.getElementById('proof-r0'), R1 = document.getElementById('proof-r1');
@@ -244,36 +249,48 @@
   }
 
   /* ---------------- interaction ---------------- */
-  var perfT = 0;
   function pointerTarget(e) {
     var r = cv.getBoundingClientRect();
     var x = e.clientX - r.left, y = e.clientY - r.top;
     var cx = (x < Wc / 2) ? CX[0] : CX[1];
     target = wrap(-Math.atan2(y - CY, x - cx));
-    pointerT = perfT;
+    pointerT = simT;
   }
   cv.addEventListener('pointermove', pointerTarget, { passive: true });
   cv.addEventListener('pointerdown', function (e) {
     pointerTarget(e);
     dist = (Math.random() < 0.5 ? -1 : 1) * 30;
-    markJump(perfT);
+    markJump(simT);
   });
 
   /* ---------------- main loop ---------------- */
+  // exact-match dev flags — substring matching would misfire on future
+  // anchors like #stillness (render.js uses the same contract)
   var prefersReduced = matchMedia('(prefers-reduced-motion: reduce)').matches
-    || location.hash.indexOf('reduce') >= 0;
-  var still = location.hash.indexOf('still') >= 0;
+    || location.hash === '#reduce';
+  var still = location.hash === '#still';
   var running = !prefersReduced && !still, inView = true, rafId = 0;
 
-  var simT = 0;
-  function loop() {
+  // wall-clock accumulator in fixed DT chunks: refresh-rate independent
+  // (120/144 Hz), settle seconds = real seconds; clamp swallows tab-away gaps
+  var simT = 0, simAcc = 0, lastTs = 0;
+  var CHUNK = SUB * DT;
+  function loop(ts) {
     rafId = requestAnimationFrame(loop);
-    simT += SUB * DT;      // fixed-step sim clock: immune to tab/scroll pauses
-    perfT = simT;
-    autoTarget(simT);
-    physics(); record(simT); draw(simT);
+    if (!lastTs) { lastTs = ts; return; }
+    simAcc += Math.min(0.1, (ts - lastTs) / 1000);
+    lastTs = ts;
+    var stepped = false;
+    while (simAcc >= CHUNK) {
+      simAcc -= CHUNK;
+      simT += CHUNK;
+      autoTarget(simT);
+      physics(); record(simT);
+      stepped = true;
+    }
+    if (stepped) draw(simT);
   }
-  function start() { if (!rafId && running && inView) rafId = requestAnimationFrame(loop); }
+  function start() { if (!rafId && running && inView) { lastTs = 0; rafId = requestAnimationFrame(loop); } }
   function stop() { if (rafId) { cancelAnimationFrame(rafId); rafId = 0; } }
 
   if ('IntersectionObserver' in window) {
@@ -300,7 +317,13 @@
   }
 
   var rT = 0;
-  addEventListener('resize', function () { clearTimeout(rT); rT = setTimeout(resize, 120); });
+  addEventListener('resize', function () {
+    clearTimeout(rT);
+    rT = setTimeout(function () {
+      resize();
+      if (!rafId) draw(simT); // setting canvas size wipes it — repaint stills
+    }, 120);
+  });
 
   resize();
 
@@ -327,7 +350,7 @@
       var eL = Math.abs(wrap(target - S[0].th)) * R2D;
       if (tW - t0 > 1.2 && eL > 15 && S[1].settle !== null) break;
     }
-    simT = tW; perfT = tW; lastJump = tW;
+    simT = tW; lastJump = tW;
     draw(tW + 1);
     if (still) {
       try {

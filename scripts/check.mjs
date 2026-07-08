@@ -506,14 +506,25 @@ if (!fs.existsSync(stylesPath)) {
 console.log('');
 console.log('=== 4. 資源預算與本地引用完整性 ===');
 
-// 預算為未壓縮位元組數；optional=true 的檔案允許不存在（該階段尚未實作），
-// 但檔案一旦存在就必須守預算。調整門檻請同步更新任務簡報。
+// 預算為未壓縮位元組數；optional=true 僅供「尚未實作的未來檔案」使用——
+// 已上線資產一律 optional:false（檔案消失＝FAIL，防 rename／誤刪讓功能
+// 靜默蒸發而 CI 全綠）。調整門檻請同步更新任務簡報。
 const ASSET_BUDGETS = [
-  { rel: 'assets/render.js', maxBytes: 48 * 1024, optional: true },
-  { rel: 'assets/proof.js',  maxBytes: 14 * 1024, optional: true },
+  { rel: 'assets/render.js', maxBytes: 52 * 1024, optional: false },
+  { rel: 'assets/proof.js',  maxBytes: 16 * 1024, optional: false },
   { rel: 'assets/main.js',   maxBytes: 16 * 1024, optional: false },
   { rel: 'assets/styles.css', maxBytes: 44 * 1024, optional: false },
 ];
+
+// script src 抽取共用 helper：走 attrsOfTag（與 <link> 解析同一條路），
+// 單引號／無引號屬性一樣抓得到——§4 與 §5 必須對「頁面載入了什麼」
+// 有同一份答案，否則白名單會漏
+function scriptSrcsOf(p) {
+  return [...p.html.matchAll(/<script\b[^>]*>/gi)]
+    .map((m) => attrsOfTag(m[0]))
+    .filter((a) => a.src)
+    .map((a) => decodeEntities(a.src));
+}
 
 for (const b of ASSET_BUDGETS) {
   const file = path.join(ROOT, ...b.rel.split('/'));
@@ -535,12 +546,13 @@ for (const b of ASSET_BUDGETS) {
   const missingRefs = [];
   for (const p of pages) {
     const refs = [
-      ...[...p.html.matchAll(/<script\b[^>]*\bsrc\s*=\s*"([^"]+)"/gi)].map((m) => m[1]),
-      ...p.links.map((a) => a.href || ''),
+      ...scriptSrcsOf(p),
+      ...p.links.map((a) => decodeEntities(a.href || '')),
     ];
-    for (const raw of refs) {
-      const href = decodeEntities(raw);
-      if (!href.startsWith('/')) continue;          // 站外或相對引用另於 §5 檢查
+    for (const href of refs) {
+      // 只有單斜線開頭＝本地絕對路徑；「//host/...」是 protocol-relative
+      // 外部 URL，歸 §5 白名單管
+      if (!href.startsWith('/') || href.startsWith('//')) continue;
       const clean = href.split(/[?#]/)[0];
       const file = path.join(ROOT, ...clean.split('/').filter(Boolean));
       if (!fs.existsSync(file)) missingRefs.push(p.rel + ' 引用了不存在的 ' + clean);
@@ -568,13 +580,12 @@ const FETCHING_RELS = new Set([
   const offenders = [];
   for (const p of pages) {
     const urls = [
-      ...[...p.html.matchAll(/<script\b[^>]*\bsrc\s*=\s*"([^"]+)"/gi)].map((m) => m[1]),
+      ...scriptSrcsOf(p),
       ...p.links
         .filter((a) => FETCHING_RELS.has((a.rel || '').toLowerCase()))
-        .map((a) => a.href || ''),
+        .map((a) => decodeEntities(a.href || '')),
     ];
-    for (const raw of urls) {
-      const href = decodeEntities(raw);
+    for (const href of urls) {
       const m = href.match(/^(?:https?:)?\/\/([^/]+)/i);
       if (!m) continue;                              // 本地路徑
       const host = m[1].toLowerCase();

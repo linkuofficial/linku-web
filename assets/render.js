@@ -1,25 +1,15 @@
 /* ============================================================
    LINKU brand scene — gimbal-core render engine (zero deps).
-
-   Layers   L0 far starfield → L1 gimbal machine (studio env light,
-            SDF-baked vertex AO, MSAA) → L2 accretion particles.
-   Post     bright pass → 3-level bloom pyramid → ACES composite
-            (tone map, shadow blue-shift, vignette, dither).
-   Ladder   WebGL2 + half-float FBO: full pipeline
-            → WebGL1 / no float FBO: direct draw, tone map in shader
-            → no GL: one static 2D frame.
-   Modes    home pages ([data-screen-label="Hero"]): scroll drives the
-            scene — Hero assembled/running → Statement push-in on the
-            core → Pillars exploded view, lit pillar by pillar →
-            Contact re-lock + pulse. Inner pages: quiet ambient.
-   Motion   prefers-reduced-motion: one settled frame + a small
-            injected play/pause toggle (opt-in motion).
-   Perf     DPR cap + max buffer edge, idle → 30fps, hidden → stop,
-            sustained low FPS tiers down (bloom off → lower res →
-            static), context-lost recovery. Resize never rebuilds
-            geometry, so mobile URL-bar changes cannot flash.
-   Dev      #still — freeze one frame and overlay it as an <img>
-            (screenshot-safe); #reduce — force the reduced path.
+   L0 starfield → L1 gimbal machine (studio env light, SDF-baked AO,
+   MSAA) → L2 accretion particles; bright→3-level bloom→ACES composite.
+   Ladder: WebGL2+half-float pipeline → WebGL1/no-float direct draw
+   (grade in-shader) → no GL: static 2D frame.
+   Home pages scroll-drive the scene (Hero run → Statement push-in →
+   Pillars exploded, lit per pillar → Contact lock+pulse); inner pages
+   idle ambient. Reduced motion: one settled frame + play toggle.
+   Perf: DPR/edge caps, idle 30fps, hidden stop, low-FPS tier-down,
+   context-lost recovery; resize never rebuilds geometry (lvh canvas).
+   Dev flags (exact match): #still freeze+snapshot, #reduce force path.
    ============================================================ */
 (function () {
   'use strict';
@@ -27,12 +17,18 @@
   var canvas = document.getElementById('particles');
   if (!canvas) return;
 
+  // exact-match dev flags — substring matching would misfire on real anchors
+  // (#stillness, #reduced-latency); proof.js follows the same contract
   var HASH = location.hash || '';
-  var STILL = HASH.indexOf('still') >= 0;
+  var STILL = HASH === '#still';
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
-    || HASH.indexOf('reduce') >= 0 || STILL;
+    || HASH === '#reduce' || STILL;
   var HOME = !!document.querySelector('[data-screen-label="Hero"]');
-  var docLang = document.documentElement.getAttribute('lang') || 'en';
+
+  // Heavy init (geometry+AO bake+GL, tens of ms on weak mobiles) runs on the
+  // first animation frame, off the parse path (no DCL block / long task).
+  // Body keeps flat indentation: re-indenting would cost ~2KB of byte budget.
+  function boot() {
 
   /* ---------------- geometry (C3 gimbal core) ---------------- */
   var pos = [], nrm = [], typ = [], rnd = [];
@@ -228,8 +224,7 @@
   pos = nrm = typ = rnd = aoArr = null;
 
   /* -------------- particles (L2 accretion) + stars (L0) -------------- */
-  // allocate for the desktop count; the drawn count follows the live canvas
-  // size (applySize), so a hidden/zero-sized load can never lock in a low tier
+  // allocate desktop count; drawn count follows live canvas size (applySize)
   var NP = HOME ? 640 : 380;
   var NP_NARROW = HOME ? 340 : 200;
   var drawNP = NP;
@@ -290,11 +285,22 @@
     'vec3 aces(vec3 x){return clamp(x*(2.51*x+0.03)/(x*(2.43*x+0.59)+0.14),0.0,1.0);}' +
     'float hsh(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}';
 
+  // the film grade, defined once and shared by the pipeline composite and the
+  // WebGL1/direct scene shader — both paths must stay on the same film stock
+  var GRADE_FN = TONE_FN +
+    'vec3 grade(vec3 c,vec2 v,vec2 fc,float t){' +
+    'c=aces(c);' +
+    'c=pow(c,vec3(1.06));' +                     // sink the shadows a touch
+    'c+=vec3(0.004,0.007,0.014)*(1.0-c);' +      // shadow blue-shift (film feel)
+    'c*=1.0-0.30*dot(v*0.62,v*0.62);' +          // vignette
+    'c+=(hsh(fc+fract(t)*7.0)-0.5)*0.008;' +     // dither vs banding
+    'return c;}';
+
   var SCENE_FS =
     'VARYI vec3 vN;VARYI vec3 vP;VARYI vec3 vView;VARYI float vAO;VARYI float vType;VARYI float vRnd;' +
     'uniform float uT;uniform float uCoreBoost;uniform float uAOMix;uniform float uEnvBoost;' +
     'uniform float uSigOn;uniform float uSigPhase;' +
-    '\n#ifdef DIRECT\nuniform vec2 uRes;uniform float uExposure;\n' + TONE_FN + '\n#endif\n' +
+    '\n#ifdef DIRECT\nuniform vec2 uRes;uniform float uExposure;\n' + GRADE_FN + '\n#endif\n' +
     // analytic studio: key milk light (upper left) + steel-blue fill (right) + top rim
     'vec3 env(vec3 d,float ex){' +
     'vec3 c=vec3(0.016,0.019,0.027);' +
@@ -308,8 +314,10 @@
     'float th=0.75+0.25*sin(uT*0.8+vRnd*6.2831);' +
     'col=vec3(1.0,0.80,0.52)*2.25*th*uCoreBoost;' +
     '}else{' +
-    'vec3 albedo=t<0.5?vec3(0.040,0.040,0.043):t<1.5?vec3(0.055,0.056,0.060):t<2.5?vec3(0.020,0.020,0.024):vec3(0.032,0.032,0.035);' +
-    'float rough=t<0.5?0.40:t<1.5?0.20:t<2.5?0.13:0.5;' +
+    // t: 0 ring body / 1 chamfer facet / 2 core shell. t≥2.5 (core glow AND
+    // type-4 bosses/pins) took the emissive branch — approved C3 pivot glow.
+    'vec3 albedo=t<0.5?vec3(0.040,0.040,0.043):t<1.5?vec3(0.055,0.056,0.060):vec3(0.020,0.020,0.024);' +
+    'float rough=t<0.5?0.40:t<1.5?0.20:0.13;' +
     'rough+=(vRnd-0.5)*0.06;' +
     'vec3 R=reflect(-V,N);' +
     'float ndv=max(dot(N,V),0.0);' +
@@ -328,11 +336,7 @@
     'float fog=smoothstep(2.4,5.4,-vView.z);' +
     'col=mix(col,vec3(0.030),fog*0.55);}' +
     '\n#ifdef DIRECT\n' +
-    'col=aces(col*uExposure);col=pow(col,vec3(1.06));' +
-    'col+=vec3(0.004,0.007,0.014)*(1.0-col);' +
-    'vec2 vg=gl_FragCoord.xy/uRes*2.0-1.0;' +
-    'col*=1.0-0.30*dot(vg*0.62,vg*0.62);' +
-    'col+=(hsh(gl_FragCoord.xy+fract(uT)*7.0)-0.5)*0.008;' +
+    'col=grade(col*uExposure,gl_FragCoord.xy/uRes*2.0-1.0,gl_FragCoord.xy,uT);' +
     '\n#endif\n' +
     'FRAGOUT=vec4(col,1.0);}';
 
@@ -373,18 +377,13 @@
     'uniform sampler2D uScene;uniform sampler2D uB0;uniform sampler2D uB1;uniform sampler2D uB2;' +
     'uniform float uT;uniform vec2 uRes;uniform float uExposure;uniform float uBloomAmt;' +
     'uniform vec2 uGlowUV;uniform float uGlowAmt;' +
-    TONE_FN +
+    GRADE_FN +
     'void main(){' +
     'vec3 c=TEX(uScene,vUv).rgb;' +
     'c+=(TEX(uB0,vUv).rgb*0.42+TEX(uB1,vUv).rgb*0.55+TEX(uB2,vUv).rgb*0.50)*uBloomAmt;' +
     'vec2 q=vUv-uGlowUV;q.x*=uRes.x/uRes.y;' +          // faint warm stage glow behind the machine
     'c+=vec3(0.055,0.047,0.038)*exp(-dot(q,q)*3.2)*uGlowAmt;' +
-    'c=aces(c*uExposure);' +
-    'c=pow(c,vec3(1.06));' +                             // sink the shadows a touch
-    'c+=vec3(0.004,0.007,0.014)*(1.0-c);' +              // shadow blue-shift (film feel)
-    'vec2 v=vUv*2.0-1.0;' +
-    'c*=1.0-0.30*dot(v*0.62,v*0.62);' +
-    'c+=(hsh(gl_FragCoord.xy+fract(uT)*7.0)-0.5)*0.008;' + // dither vs banding (CSS grain adds texture)
+    'c=grade(c*uExposure,vUv*2.0-1.0,gl_FragCoord.xy,uT);' +
     'FRAGOUT=vec4(c,1.0);}';
 
   /* ---------------- GL bootstrap + capability ladder ---------------- */
@@ -393,10 +392,15 @@
     var c2 = document.createElement('canvas');
     c2.id = canvas.id;
     c2.setAttribute('aria-hidden', 'true');
+    var i, ATTRS = ['data-l-play', 'data-l-pause'];
+    for (i = 0; i < ATTRS.length; i++) {
+      var v = canvas.getAttribute(ATTRS[i]);
+      if (v) c2.setAttribute(ATTRS[i], v);
+    }
     canvas.replaceWith(c2);
     canvas = c2;
   }
-  (function boot() {
+  (function glBoot() {
     var attrs = { antialias: false, alpha: false, depth: true, stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: STILL };
     try { gl = canvas.getContext('webgl2', attrs); } catch (e) { gl = null; }
     if (gl) {
@@ -438,14 +442,22 @@
     }
     ctx.globalCompositeOperation = 'source-over';
   }
-  if (MODE === '2d') { window.__scene = { mode: '2d' }; static2D(); return; }
+  if (MODE === '2d') {
+    window.__scene = { mode: '2d' };
+    static2D();
+    // main resize handler never registers on this path — repaint here
+    var rT2 = 0;
+    addEventListener('resize', function () {
+      clearTimeout(rT2); rT2 = setTimeout(static2D, 150);
+    }, { passive: true });
+    return;
+  }
 
   /* ---------------- programs / buffers ---------------- */
   var VERT_PRE = isGL2 ? '#version 300 es\n#define ATTR in\n#define VARYO out\n'
     : '#define ATTR attribute\n#define VARYO varying\n';
   var FRAG_PRE = isGL2 ? '#version 300 es\nprecision highp float;\n#define VARYI in\nout vec4 FRAGOUT;\n#define TEX texture\n'
     : 'precision highp float;\n#define VARYI varying\n#define FRAGOUT gl_FragColor\n#define TEX texture2D\n';
-  var DIRECT_DEF = MODE === 'direct' ? '#define DIRECT 1\n' : '';
 
   var progs = [];
   function prog(vs, fs, attrs) {
@@ -502,6 +514,9 @@
   }
 
   function initGLObjects() {
+    // computed here, not at module init: a later demotion to direct mode must
+    // recompile with the in-shader grade, or direct draws ship raw linear HDR
+    var DIRECT_DEF = MODE === 'pipe' ? '' : '#define DIRECT 1\n';
     P.scene = prog(SCENE_VS, DIRECT_DEF + SCENE_FS, ['aPos', 'aNrm', 'aAO', 'aType', 'aRnd']);
     P.points = prog(POINT_VS, DIRECT_DEF + POINT_FS, ['aPos', 'aSize', 'aAlpha', 'aWarm']);
     if (MODE === 'pipe') {
@@ -550,8 +565,9 @@
     return { t: t, f: f, w: w, h: h };
   }
   function delFBO(o) { if (!o) return; gl.deleteTexture(o.t); gl.deleteFramebuffer(o.f); }
+  // false = half-float pipeline unrenderable here → caller demotes to direct
   function buildFBOs() {
-    if (MODE !== 'pipe') return;
+    if (MODE !== 'pipe') return true;
     if (fbo) {
       delFBO(fbo.scene); delFBO(fbo.bright);
       delFBO(fbo.b0a); delFBO(fbo.b0b); delFBO(fbo.b1a); delFBO(fbo.b1b); delFBO(fbo.b2a); delFBO(fbo.b2b);
@@ -576,6 +592,15 @@
     } catch (e) { ms = null; }
     msaaOK = !!ms;
     var scene = texFBO(W, H, !msaaOK); // no MSAA → depth lives on the scene FBO
+    // check completeness on the buffer the pipeline actually renders into
+    gl.bindFramebuffer(gl.FRAMEBUFFER, scene.f);
+    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      delFBO(scene);
+      if (ms) gl.deleteFramebuffer(ms);
+      fbo = null;
+      return false;
+    }
     var w2 = Math.max(2, W >> 1), h2 = Math.max(2, H >> 1);
     var w4 = Math.max(2, W >> 2), h4 = Math.max(2, H >> 2);
     var w8 = Math.max(2, W >> 3), h8 = Math.max(2, H >> 3);
@@ -586,11 +611,16 @@
       b1a: texFBO(w4, h4), b1b: texFBO(w4, h4),
       b2a: texFBO(w8, h8), b2b: texFBO(w8, h8),
     };
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-      // half-float unrenderable after all — drop to direct-style single frame
-      MODE = 'direct-broken';
-    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return true;
+  }
+
+  function demoteToDirect() {
+    MODE = 'direct';
+    for (var i = 0; i < progs.length; i++) gl.deleteProgram(progs[i].p);
+    progs = []; P = {};
+    fbo = null;
+    initGLObjects();
   }
 
   /* ---------------- projection / sizing ---------------- */
@@ -609,7 +639,7 @@
     H = Math.max(8, Math.round(ch * s));
     drawNP = Math.min(cw || 9999, ch || 9999) < 700 ? NP_NARROW : NP;
     canvas.width = W; canvas.height = H;
-    buildFBOs();
+    if (!buildFBOs()) demoteToDirect();
     var proj = projArray(W / H);
     for (var i = 0; i < progs.length; i++) {
       if (progs[i].u.uProj) { gl.useProgram(progs[i].p); gl.uniformMatrix4fv(progs[i].u.uProj, false, proj); }
@@ -655,25 +685,42 @@
   function lerp(a, b, t) { return a + (b - a) * t; }
   function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
 
+  // section/pillar centers cached in document space, re-measured only when
+  // document height changes — per-frame path is scrollY arithmetic, no gBCR
+  var secCenters = [], pilCenters = [], measuredSH = -1;
+  function measureLayout() {
+    var sy = window.scrollY || 0, i, r;
+    measuredSH = document.documentElement.scrollHeight;
+    secCenters = [];
+    for (i = 0; i < sections.length; i++) {
+      r = sections[i].getBoundingClientRect();
+      secCenters.push(sy + r.top + r.height / 2);
+    }
+    pilCenters = [];
+    for (i = 0; i < pillarEls.length && i < 3; i++) {
+      r = pillarEls[i].getBoundingClientRect();
+      pilCenters.push(sy + r.top + r.height / 2);
+    }
+  }
+  function freshLayout() {
+    if (document.documentElement.scrollHeight !== measuredSH) measureLayout();
+  }
+
   function chapterTarget() {
     if (!HOME || sections.length < 2) return 0;
-    var vc = innerHeight / 2, centers = [];
-    for (var i = 0; i < sections.length; i++) {
-      var r = sections[i].getBoundingClientRect();
-      centers.push(r.top + r.height / 2);
+    freshLayout();
+    var vc = (window.scrollY || 0) + innerHeight / 2;
+    if (vc <= secCenters[0]) return 0;
+    for (var j = 0; j < secCenters.length - 1; j++) {
+      if (vc < secCenters[j + 1]) return j + (vc - secCenters[j]) / (secCenters[j + 1] - secCenters[j]);
     }
-    if (vc <= centers[0]) return 0;
-    for (var j = 0; j < centers.length - 1; j++) {
-      if (vc < centers[j + 1]) return j + (vc - centers[j]) / (centers[j + 1] - centers[j]);
-    }
-    return centers.length - 1;
+    return secCenters.length - 1;
   }
   function pillarWeights() {
     var w = [0, 0, 0];
-    var vc = innerHeight / 2;
-    for (var i = 0; i < pillarEls.length && i < 3; i++) {
-      var r = pillarEls[i].getBoundingClientRect();
-      var d = Math.abs(r.top + r.height / 2 - vc) / (innerHeight * 0.6);
+    var vc = (window.scrollY || 0) + innerHeight / 2;
+    for (var i = 0; i < pilCenters.length; i++) {
+      var d = Math.abs(pilCenters[i] - vc) / (innerHeight * 0.6);
       var x = Math.max(0, 1 - d);
       w[i] = x * x;
     }
@@ -925,21 +972,23 @@
   }
 
   /* ---------------- loop / governance ---------------- */
-  var rafId = 0, prevTs = 0, flip = false, running = false, seenSet = seen;
+  var rafId = 0, prevTs = 0, flip = false, running = false;
   var fpsEMA = 60, lowSince = 0;
   function loop(ts) {
     rafId = requestAnimationFrame(loop);
-    var dt = prevTs ? Math.min(0.05, (ts - prevTs) / 1000) : 0.016;
-    prevTs = ts;
-    if (!seenSet && introT >= INTRO) {
-      // mark only once the intro has actually been rendered — a prerendered
-      // page (frozen rAF) must not burn the once-per-session intro unseen
-      seenSet = true;
-      try { sessionStorage.setItem('linku_scene', '1'); } catch (e) { }
-    }
     var idle = introT >= INTRO && (ts - lastActive) > 4000;
     flip = !flip;
-    if (idle && flip) return; // 30fps while reading
+    // skip BEFORE consuming the timestamp: next rendered frame sees ~33ms dt
+    // → idle halves the frame rate, not the motion speed
+    if (idle && flip) return;
+    var dt = prevTs ? Math.min(0.05, (ts - prevTs) / 1000) : 0.016;
+    prevTs = ts;
+    if (!seen && introT >= INTRO) {
+      // mark only once the intro has actually been rendered — a prerendered
+      // page (frozen rAF) must not burn the once-per-session intro unseen
+      seen = true;
+      try { sessionStorage.setItem('linku_scene', '1'); } catch (e) { }
+    }
     render(dt);
     if (!idle && introT > 3) {
       var fps = 1 / Math.max(0.001, dt);
@@ -955,7 +1004,12 @@
     fpsEMA = 60;
     if (tier === 1) bloomOff = true;
     else if (tier === 2) applySize();
-    else { stopLoop(); render(0.016); } // static endpoint for weak GPUs
+    else {
+      // static endpoint: running=false so visibilitychange can't resurrect it
+      running = false;
+      stopLoop();
+      render(0.016);
+    }
   }
   function startLoop() {
     if (rafId || !running) return;
@@ -986,13 +1040,13 @@
       canvas.parentNode.insertBefore(img, canvas.nextSibling);
     } catch (e) { }
   }
-  var TOGGLE_LABELS = {
-    en: ['Play background animation', 'Pause background animation'],
-    'zh-Hant': ['播放背景動畫', '暫停背景動畫'],
-    ja: ['背景アニメーションを再生', '背景アニメーションを停止'],
-  };
   function injectToggle() {
-    var L = TOGGLE_LABELS[docLang] || TOGGLE_LABELS.en;
+    // localized labels live in each page's HTML data attributes (same i18n
+    // mechanism as the proof section) — never in shared JS
+    var L = [
+      canvas.getAttribute('data-l-play') || 'Play background animation',
+      canvas.getAttribute('data-l-pause') || 'Pause background animation',
+    ];
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'scene-toggle';
@@ -1012,35 +1066,47 @@
     document.body.appendChild(b);
   }
 
-  var resizeT = 0, lastCW = 0, lastCH = 0;
+  var resizeT = 0, lastCW = 0, lastCH = 0, lastDPR = 0;
   addEventListener('resize', function () {
     clearTimeout(resizeT);
     resizeT = setTimeout(function () {
+      if (MODE === '2d') { static2D(); return; } // GL died earlier — repaint the 2D frame
       var cw = canvas.clientWidth, ch = canvas.clientHeight;
-      if (cw === lastCW && ch === lastCH) return; // e.g. mobile URL bar with lvh
-      lastCW = cw; lastCH = ch;
-      applySize();
-      if (!rafId) render(0.016); // keep stills fresh
+      var dpr = devicePixelRatio || 1; // dpr alone changes when dragging across monitors with different OS scaling
+      if (cw === lastCW && ch === lastCH && dpr === lastDPR) return; // e.g. mobile URL bar with lvh
+      lastCW = cw; lastCH = ch; lastDPR = dpr;
+      try {
+        applySize();
+        if (!rafId) render(0.016); // keep stills fresh
+      } catch (e) {
+        console.warn('scene: resize re-init failed, falling back to static frame:', e && e.message);
+        MODE = '2d'; static2D();
+      }
     }, 150);
   }, { passive: true });
 
   canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); stopLoop(); }, false);
   canvas.addEventListener('webglcontextrestored', function () {
-    progs = []; fbo = null;
-    initGLObjects();
-    applySize();
-    if (running) { startLoop(); } else { renderStill(); }
+    // relinks can fail right after a GPU reset — never strand a black canvas
+    try {
+      progs = []; P = {}; fbo = null;
+      initGLObjects();
+      applySize();
+      if (running) { startLoop(); } else { renderStill(); }
+    } catch (e) {
+      console.warn('scene: context restore failed, falling back to static frame:', e && e.message);
+      MODE = '2d'; static2D();
+    }
   }, false);
 
   try {
     initGLObjects();
+    lastCW = canvas.clientWidth; lastCH = canvas.clientHeight; lastDPR = devicePixelRatio || 1;
+    applySize();
   } catch (e) {
     console.warn('scene: GL init failed, falling back to static frame:', e && e.message);
     MODE = '2d'; static2D(); return;
   }
-  lastCW = canvas.clientWidth; lastCH = canvas.clientHeight;
-  applySize();
-  if (MODE === 'direct-broken') { MODE = 'direct'; } // pipeline FBOs failed → plain direct draw
 
   // dev/introspection handle (used by verification tooling)
   window.__scene = {
@@ -1056,4 +1122,8 @@
   }
   running = true;
   startLoop();
+  } // end boot()
+
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(boot);
+  else boot();
 })();
