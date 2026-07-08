@@ -556,15 +556,23 @@
     var f = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, f);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+    var rb = null;
     if (withDepth) {
-      var rb = gl.createRenderbuffer();
+      rb = gl.createRenderbuffer();
       gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
       gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
       gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
     }
-    return { t: t, f: f, w: w, h: h };
+    return { t: t, f: f, w: w, h: h, rb: rb };
   }
-  function delFBO(o) { if (!o) return; gl.deleteTexture(o.t); gl.deleteFramebuffer(o.f); }
+  // delete renderbuffers too — a rebuild that only frees textures/framebuffers
+  // orphans the depth/MSAA renderbuffers and leaks GPU memory on every resize
+  function delFBO(o) {
+    if (!o) return;
+    gl.deleteTexture(o.t);
+    gl.deleteFramebuffer(o.f);
+    if (o.rb) gl.deleteRenderbuffer(o.rb);
+  }
   // false = half-float pipeline unrenderable here → caller demotes to direct
   function buildFBOs() {
     if (MODE !== 'pipe') return true;
@@ -572,24 +580,34 @@
       delFBO(fbo.scene); delFBO(fbo.bright);
       delFBO(fbo.b0a); delFBO(fbo.b0b); delFBO(fbo.b1a); delFBO(fbo.b1b); delFBO(fbo.b2a); delFBO(fbo.b2b);
       if (fbo.ms) gl.deleteFramebuffer(fbo.ms);
+      if (fbo.msRbC) gl.deleteRenderbuffer(fbo.msRbC); // MSAA color/depth renderbuffers
+      if (fbo.msRbD) gl.deleteRenderbuffer(fbo.msRbD); // aren't owned by the framebuffer
     }
-    var ms = null;
+    var ms = null, msRbC = null, msRbD = null;
     try {
       var samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES) || 0);
       if (samples > 1) {
         ms = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, ms);
-        var rbC = gl.createRenderbuffer();
-        gl.bindRenderbuffer(gl.RENDERBUFFER, rbC);
+        msRbC = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, msRbC);
         gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA16F, W, H);
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, rbC);
-        var rbD = gl.createRenderbuffer();
-        gl.bindRenderbuffer(gl.RENDERBUFFER, rbD);
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, msRbC);
+        msRbD = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, msRbD);
         gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, W, H);
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rbD);
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) { gl.deleteFramebuffer(ms); ms = null; }
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, msRbD);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+          gl.deleteFramebuffer(ms); gl.deleteRenderbuffer(msRbC); gl.deleteRenderbuffer(msRbD);
+          ms = msRbC = msRbD = null;
+        }
       }
-    } catch (e) { ms = null; }
+    } catch (e) {
+      if (ms) gl.deleteFramebuffer(ms);
+      if (msRbC) gl.deleteRenderbuffer(msRbC);
+      if (msRbD) gl.deleteRenderbuffer(msRbD);
+      ms = msRbC = msRbD = null;
+    }
     msaaOK = !!ms;
     var scene = texFBO(W, H, !msaaOK); // no MSAA → depth lives on the scene FBO
     // check completeness on the buffer the pipeline actually renders into
@@ -598,6 +616,8 @@
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       delFBO(scene);
       if (ms) gl.deleteFramebuffer(ms);
+      if (msRbC) gl.deleteRenderbuffer(msRbC);
+      if (msRbD) gl.deleteRenderbuffer(msRbD);
       fbo = null;
       return false;
     }
@@ -605,7 +625,7 @@
     var w4 = Math.max(2, W >> 2), h4 = Math.max(2, H >> 2);
     var w8 = Math.max(2, W >> 3), h8 = Math.max(2, H >> 3);
     fbo = {
-      ms: ms, scene: scene,
+      ms: ms, msRbC: msRbC, msRbD: msRbD, scene: scene,
       bright: texFBO(w2, h2),
       b0a: texFBO(w2, h2), b0b: texFBO(w2, h2),
       b1a: texFBO(w4, h4), b1b: texFBO(w4, h4),
@@ -976,11 +996,17 @@
   var fpsEMA = 60, lowSince = 0;
   function loop(ts) {
     rafId = requestAnimationFrame(loop);
-    var idle = introT >= INTRO && (ts - lastActive) > 4000;
+    // throttle to 30fps once the intro is done and either: no interaction for
+    // 4s (reading), or the hero has scrolled >1.5×vh out of frame (per brief —
+    // the scene is fixed, so scroll depth stands in for "hero left viewport")
+    var throttle = introT >= INTRO && (
+      (ts - lastActive) > 4000 ||
+      (HOME && (window.scrollY || 0) > innerHeight * 1.5)
+    );
     flip = !flip;
     // skip BEFORE consuming the timestamp: next rendered frame sees ~33ms dt
-    // → idle halves the frame rate, not the motion speed
-    if (idle && flip) return;
+    // → throttle halves the frame rate, not the motion speed
+    if (throttle && flip) return;
     var dt = prevTs ? Math.min(0.05, (ts - prevTs) / 1000) : 0.016;
     prevTs = ts;
     if (!seen && introT >= INTRO) {
@@ -990,7 +1016,7 @@
       try { sessionStorage.setItem('linku_scene', '1'); } catch (e) { }
     }
     render(dt);
-    if (!idle && introT > 3) {
+    if (!throttle && introT > 3) {
       var fps = 1 / Math.max(0.001, dt);
       fpsEMA += (fps - fpsEMA) * 0.05;
       if (fpsEMA < 40) {

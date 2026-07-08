@@ -164,6 +164,10 @@ Clarke–Park 三面板版（含站上語彙重製版 `docs/prototypes/p-proof-c
   - 舊 prototype（a/b/c/c2/clarke-park）留本機未入版控，處置待凜空
   - 手機網址列 resize 對策改為 canvas 100lvh＋幾何永不重建（比 brief 原「<80px 門檻」更徹底），
     lvh 不支援的舊瀏覽器回退 100vh（僅 buffer 輕微重配置，無視覺跳動）
+  - **工具 bug（跨 repo，非本 branch）**：`D:\LINKU\scripts\cross-fire.mjs` 的 `--auto` 在 Node 24
+    Windows 下 `spawnSync codex.cmd EINVAL`——Node 20.12+ 基於安全性不再允許不帶 `shell:true` spawn
+    `.cmd/.bat`。修法：spawnSync 加 `shell: true`（或改 `codex`/`codex.cmd` 偵測＋shell）。目前 workaround＝
+    產包後手動 `codex exec --sandbox read-only - < packet` 管入，實測可行。建議另開小 task 修 cross-fire.mjs。
 
 ## Review（審查層填；盡量用與實作層不同的模型家族）
 ### 內圈預審（cross-fire §0 步驟 0，2026-07-08，claude-fable-5 自審）
@@ -174,13 +178,29 @@ Clarke–Park 三面板版（含站上語彙重製版 `docs/prototypes/p-proof-c
 - 修復後全部重驗：check.mjs 22 PASS、數值審計 6/6＋120Hz 1:1、
   瀏覽器矩陣（章節／reduce 鈕／#still／proof）、視覺一致。
 
-### 跨家族交叉（Codex，待凜空貼包）
-- Reviewer: <codex — packet 已產，見 HANDOFF>
-- 模式: ③對抗驗證
+### 跨家族交叉（Codex，2026-07-08 實跑）
+- Reviewer: Codex GPT-5.5（codex-cli 0.142.5, xhigh, read-only sandbox, 106K tokens）
+- 模式: ②測試互寫＋③對抗驗證
 - 觸發原因: 路徑觸發（風險等級 中·三角測量）
-- Verdict: <待審>
-- Findings:
-  -
+- 執行方式: cross-fire.mjs 產包後**直接 `codex exec --sandbox read-only -` 管入**（`--auto` 因
+  Node 24 Windows `spawnSync .cmd EINVAL` 失敗＝工具 bug，非 sandbox；繞過 node 包裝即成）。
+- Verdict: fix-needed → 已處理：2 真 bug 修復、1 邊界還原，3 項升凜空裁決。
+- Findings（Codex 提 5 條，逐條處置）：
+  1. **[High] robots.txt 被改，違反 brief 邊界** → **已還原**（commit：restore from main）。docs/ 公開存取
+     的正解＝部署層排除（vercel.json/.vercelignore），依規則需另開 brief＝**凜空裁決**（見下 #2 同根）。
+  2. **[High] docs/prototypes/*.html 入版控會隨 Vercel 公開** → **凜空裁決**。brief P1 有「留一份作記錄」
+     背書故保留 c3/p2 兩檔（且含 noindex），但 Codex 正確指出 robots.txt 擋不住公開存取，且 brief .md
+     本身也 fetchable。處置選項：(a) 部署排除 /docs/（另開 brief）｜(b) 移出版控只留本機｜(c) 接受公開。
+  3. **[High] 三語 /technology/ 發布待定稿 proof 文案** → **已知風險，凜空定稿前不合 main**。與 HANDOFF
+     「proof 文案 v4 草稿待定稿、ja 待母語校稿」一致；Codex 獨立確認＝不可視為 Done。
+  4. **[Medium] render.js FBO rebuild 洩漏 renderbuffer** → **已修**（真 bug，自審 8 視角漏掉）。texFBO
+     回傳 depth rb、delFBO 刪 rb、buildFBOs 追蹤並刪 MSAA msRbC/msRbD。**無頭數值驗證**：21 次 build
+     建 42／刪 40／live 恆定 2（修前建 42 刪 0＝洩漏 42）。
+  5. **[Medium] 深捲未依「hero 離開視口 1.5×vh」降 30fps，只靠 idle 4s** → **已修**（brief 規格缺口）。
+     loop 的 throttle 增 `HOME && scrollY > 1.5×innerHeight` 條件（場景 fixed，捲動深度代表 hero 離場）。
+- 信心註記：#4 確定性數值驗證（高信心）；#5 純邏輯（高信心）；#1–3 為邊界/流程，非我可單方裁決。
+- 環境備註：preview 分頁卡 hidden（rAF 節流）致 live 截圖不可得；#4/#5 改以無頭審計＋程式碼審查驗證，
+  場景本體已於自審批次前充分截圖驗證，本批 4 處編輯狹窄且不動 boot/render 主流程。
 
 ## 裁決（凜空）
 - 決定: Q1 視覺動畫 ✓；Q3 不加慣性捲動 ✓；Q4 交實作層規劃 ✓；Q2 選 **C 方向**＋概念**軸環機芯**；C2 素模版因廉價感否決 → 重建為 **C3 攝影棚級**（完整 HDR/AO/bloom/ACES 管線），品質原則寫入 P1b 驗收標準，待凜空看 c3 demo 確認。
