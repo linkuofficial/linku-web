@@ -46,12 +46,42 @@ body {
   color: var(--bg);
 }
 
-/* ---------- Particle canvas ---------- */
+/* ---------- Brand scene canvas ----------
+   height uses the large viewport unit so mobile URL-bar collapse never
+   resizes the GL buffers (no reallocation hitch mid-scroll). */
 #particles {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100lvh;
   z-index: 0;
   pointer-events: none;
+}
+
+/* Reduced-motion play/pause toggle (injected by render.js) */
+.scene-toggle {
+  position: fixed;
+  left: clamp(28px, 6vw, 96px);
+  bottom: 22px;
+  z-index: 90;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font: 11px/32px var(--body);
+  text-align: center;
+  color: var(--muted);
+  background: rgba(10, 10, 10, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 0.3s ease, border-color 0.3s ease;
+}
+
+.scene-toggle:hover,
+.scene-toggle:focus-visible {
+  color: var(--cream);
+  border-color: rgba(232, 230, 224, 0.4);
 }
 
 /* ---------- Ambient layers over the canvas, under content ----------
@@ -928,6 +958,22 @@ footer {
 
   .scroll-cue .bar::after {
     animation: none;
+  }
+}
+
+/* Narrow screens: small copy inevitably crosses the scene's glow — a dark
+   halo keeps it readable without visibly changing it on the plain background. */
+@media (max-width: 700px) {
+
+  .hero-sub,
+  .statement-fact,
+  .pillar-tag,
+  .contact-note,
+  .tech-desc,
+  .tech-hero-sub,
+  .about-lead,
+  .about-body {
+    text-shadow: 0 1px 10px rgba(10, 10, 10, 0.85), 0 0 26px rgba(10, 10, 10, 0.7);
   }
 }
 
