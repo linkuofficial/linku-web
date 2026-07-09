@@ -1577,7 +1577,14 @@ html[lang="ja"] .more-link {
 @media (max-width: 520px) {
   nav {
     mix-blend-mode: normal;
-    padding: 24px 20px;
+    padding: 22px 20px 32px;
+    /* top-down scrim: guarantees the brand/links/language switch always sit
+       on a dark-enough backing, fading to transparent so there is no hard
+       edge cutting across the deep-space scene below */
+    background: linear-gradient(to bottom,
+        rgba(10, 10, 10, 0.86) 0%,
+        rgba(10, 10, 10, 0.58) 52%,
+        rgba(10, 10, 10, 0) 100%);
   }
 
   .brand {
