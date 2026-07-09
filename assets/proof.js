@@ -150,9 +150,16 @@
     cv.width = Math.max(1, Math.round(r.width * dpr));
     cv.height = Math.max(1, Math.round(r.height * dpr));
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    R = Math.min(Wc * 0.155, Hc * 0.30);
-    CX = [Wc * 0.27, Wc * 0.73]; CY = Hc * 0.36;
-    BY = Hc * 0.76; BH = Hc * 0.15; BW = Math.min(Wc * 0.34, 460);
+    // narrow/portrait (phones): bigger rings, higher-centred, error strips
+    // pulled up so the instrument fills the frame instead of floating in a
+    // tall box with dead space below (desktop layout unchanged)
+    var narrow = Wc < 620;
+    R = narrow ? Math.min(Wc * 0.20, Hc * 0.21) : Math.min(Wc * 0.155, Hc * 0.30);
+    CX = [Wc * 0.27, Wc * 0.73];
+    CY = narrow ? Hc * 0.33 : Hc * 0.36;
+    BY = narrow ? Hc * 0.68 : Hc * 0.76;
+    BH = narrow ? Hc * 0.16 : Hc * 0.15;
+    BW = Math.min(narrow ? Wc * 0.40 : Wc * 0.34, 460);
   }
 
   var HIST = 240; // ~4 s of error history
@@ -249,19 +256,36 @@
   }
 
   /* ---------------- interaction ---------------- */
-  function pointerTarget(e) {
+  // aim = set the shared target to the angle under the point; disturb = kick
+  // both sides equally. Kept as separate verbs so touch can bind them to
+  // separate gestures (a drag-to-aim on a phone just fights page scrolling).
+  function aimAt(e) {
     var r = cv.getBoundingClientRect();
     var x = e.clientX - r.left, y = e.clientY - r.top;
     var cx = (x < Wc / 2) ? CX[0] : CX[1];
     target = wrap(-Math.atan2(y - CY, x - cx));
     pointerT = simT;
   }
-  cv.addEventListener('pointermove', pointerTarget, { passive: true });
-  cv.addEventListener('pointerdown', function (e) {
-    pointerTarget(e);
+  function disturb() {
     dist = (Math.random() < 0.5 ? -1 : 1) * 30;
     markJump(simT);
-  });
+  }
+  var FINE = matchMedia('(hover: hover) and (pointer: fine)').matches;
+  if (FINE) {
+    // desktop: cursor aims continuously, click also disturbs
+    cv.addEventListener('pointermove', aimAt, { passive: true });
+    cv.addEventListener('pointerdown', function (e) { aimAt(e); disturb(); });
+  } else {
+    // touch: a genuine tap aims (click never fires mid-scroll, so it can't
+    // hijack the page), and a dedicated button injects the disturbance —
+    // aim and disturb never collide on one gesture
+    cv.addEventListener('click', aimAt);
+    var db = document.getElementById('proof-disturb');
+    if (db) {
+      db.hidden = false;
+      db.addEventListener('click', disturb);
+    }
+  }
 
   /* ---------------- main loop ---------------- */
   // exact-match dev flags — substring matching would misfire on future
