@@ -147,7 +147,7 @@
     </section>
 
     <!-- PROOF 證明段：兩套相同模擬硬體，唯一變因＝演算法。
-         文案為 v4 草稿，最終措辭待定稿。 -->
+         文案為 v5 草稿，最終措辭待定稿。 -->
     <section class="proof section-pad" id="proof" data-screen-label="Proof">
       <div class="label reveal">實證</div>
       <h2 class="proof-title reveal">同樣的硬體，兩種結果。</h2>
@@ -162,8 +162,8 @@
         <canvas id="proof-canvas" data-l-settle="安定"
           aria-label="兩個相同的模擬轉軸追蹤同一目標：左為常見控制（慢、過衝、抖動），右為軟硬協同控制（快而穩）；下方細線為兩側誤差的時間軌跡"></canvas>
         <div class="proof-caps">
-          <div class="proof-cap"><span>常見作法</span><output id="proof-r0">RMS —</output><output id="proof-s0">安定 —</output></div>
-          <div class="proof-cap linku"><span>軟硬協同</span><output id="proof-r1">RMS —</output><output id="proof-s1">安定 —</output></div>
+          <div class="proof-cap"><span>常見作法</span><output id="proof-s0">安定 —</output></div>
+          <div class="proof-cap linku"><span>軟硬協同</span><output id="proof-s1">安定 —</output></div>
         </div>
       </div>
       <p class="proof-hint">移動游標＝移動目標　&middot;　點擊＝同時對兩邊施加干擾　&middot;　下方細線＝誤差的時間軌跡（越平越好）</p>
@@ -175,10 +175,10 @@
         <div class="proof-spec">
           <b>受控體（兩側相同）</b>&#8195;J&middot;&#952;&#776; = &#964; &#8722; b&middot;&#952;&#775; + d(t)，J = 1，b = 0.15，|&#964;| &#8804; 6；迴路 240 Hz、感測延遲 1 拍（兩側相同）<br>
           <b>感測（兩側相同）</b>&#8195;編碼器量化 1.5&#176;（&#8776;240 CPR），高斯雜訊 &#963; = 0.5&#176;；兩側共用同一雜訊序列（common random numbers）<br>
-          <b>常見作法（真實現狀）</b>&#8195;固定增益 PID（Ziegler&#8211;Nichols 風格整定）：&#964; = 9&middot;e + &#8747;5&middot;e &#8722; 1.5&middot;&#234;&#775;；速度＝編碼器差分（雜訊直通 D 項）；積分僅粗暴限幅（|I| &#8804; 0.6&middot;&#964;max）&#8594; 大步階仍有飽和積分暴衝；階躍指令直接餵，無軌跡、無前饋、無模型<br>
+          <b>常見作法（合理整定的基本 PID）</b>&#8195;固定增益 PID：&#964; = 20&middot;e + &#8747;12&middot;e &#8722; 5.8&middot;&#969;&#770;f（&#950; &#8776; 0.65）；速度＝編碼器 6 拍差分＋一階低通（dirty derivative，&#969; &#8776; 20 rad/s）；抗飽和＝條件式積分（輸出飽和時停積）；階躍指令直接餵——無軌跡規劃、無模型前饋、無估測器、不補償感測延遲<br>
           <b class="o">軟硬協同（公開最佳實務的正確部署）</b>&#8195;穩態卡爾曼（&#945;&#8211;&#946;）估測＋一拍前向預測；近似時間最優速度 governor（PTOS：遠處 v &#8804; &#8730;(2a&middot;e)、近處線性終端，a &#8804; 0.8&middot;&#964;max/J，留回授餘裕）；模型前饋 &#964;ff = J&middot;a_ref + b&middot;&#969;_ref；動量式擾動觀測器（&#969; &#8776; 12 rad/s）估測並抵消外力矩；回授 &#964;fb = 40&middot;(&#952;ref&#8722;&#952;&#770;) + 11&middot;(&#969;ref&#8722;&#969;&#770;)，&#950; &#8776; 0.87<br>
           <b>干擾</b>&#8195;點擊＝對兩側同時注入等量衝擊力矩；環境擾動為連續小雜訊力矩（共用序列）<br>
-          <b>統計</b>&#8195;RMS＝最近 4 秒對最終目標的誤差均方根；安定＝事件後首次進入 &#177;2&#176; 帶並停留 0.3 s 的時間<br>
+          <b>統計</b>&#8195;安定＝事件後首次進入 &#177;2&#176; 帶並停留 0.3 s 的時間（兩側同一定義；誤差全程見下方細線）<br>
           <b>聲明</b>&#8195;右側全部為公開教科書級技術；差距不靠祕密，靠正確的部署與整定——這正是軟硬協同的意義
         </div>
       </details>

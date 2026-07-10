@@ -1,11 +1,11 @@
 /* ============================================================
    Proof — "Same hardware, two outcomes." (/technology/)
-   Two identical simulated plants track one target on one shared noise
-   sequence. Left: fixed-gain PID on raw differenced encoder signals.
-   Right: Kalman + one-tick prediction, PTOS governor, feedforward, DOB.
-   Text lives in the DOM (i18n); canvas draws geometry only. Honors
-   prefers-reduced-motion (+ play toggle), pauses off-screen; wall-clock
-   accumulator stepped in fixed DT chunks. #still swaps a static image.
+   Two identical simulated plants, one shared noise sequence. Left: a
+   COMPETENT fixed-gain PID (not a strawman — always converges, ~2.5x
+   slower). Right: Kalman + prediction, PTOS, feedforward, DOB. The gap
+   is structural, not bad tuning. Text in DOM (i18n); canvas geometry
+   only. Reduced-motion (+ play toggle), off-screen pause, wall-clock
+   fixed-DT stepping. #still swaps a static image.
    ============================================================ */
 (function () {
   'use strict';
@@ -34,6 +34,10 @@
   var V_MAX = 6.0;
   var E_LIN = 0.06;                         // PTOS linear terminal radius (≈3.4°)
   var K_LIN = Math.sqrt(2 * A_MAX / E_LIN); // C0-continuous boundary match
+  // left-side competent PID (numeric sweep 2026-07-09: settles every jump,
+  // mean 2.7s vs right 1.1s = credible 2.5x; disturbance recovery 1.9x)
+  var PID_KP = 20, PID_KD = 5.8, PID_KI = 12; // ζ≈0.65 @ ωn≈4.5 rad/s
+  var PID_WF = 20, PID_ND = 6;                // dirty-derivative LPF (rad/s) / diff base (ticks)
 
   function gauss() {
     var u = 0, v = 0;
@@ -45,7 +49,7 @@
   function makeSide(kind) {
     return {
       kind: kind, th: 0, w: 0, measBuf: [], est: 0, estW: 0,
-      I: 0, refTh: 0, refW: 0, dHat: 0, pHat: 0, tauPrev: 0,
+      I: 0, vF: 0, refTh: 0, refW: 0, dHat: 0, pHat: 0, tauPrev: 0,
       trail: [], errHist: [], inBand: -1, settle: null,
     };
   }
@@ -55,7 +59,7 @@
   function sense(side, n) {
     var m = Math.round((side.th + n * NOISE) / QUANT) * QUANT;
     side.measBuf.push(m);
-    if (side.measBuf.length > LAT + 6) side.measBuf.shift();
+    if (side.measBuf.length > LAT + PID_ND + 2) side.measBuf.shift();
     // one place owns the latency indexing — both controllers read this tick
     side.lagIdx = Math.max(0, side.measBuf.length - 1 - LAT);
     return side.measBuf[side.lagIdx];
@@ -65,16 +69,20 @@
     var mLag = sense(side, n);
     var tq;
     if (side.kind === 'naive') {
-      /* the status quo: ZN-style fixed-gain PID + encoder differencing
-         (noise passes straight into D), crude integral clamp (windup on
-         large steps), raw step commands — no trajectory, no model */
+      /* the status quo, done competently: dirty-derivative velocity,
+         clamping anti-windup. Still raw steps — no trajectory, feedforward,
+         observer or latency compensation: the structural gap. */
       var buf = side.measBuf;
       var i = side.lagIdx;
-      var iPrev = Math.max(0, i - 3);
-      var vel = wrap(buf[i] - buf[iPrev]) / (dt * (i - iPrev || 1));
+      var iPrev = Math.max(0, i - PID_ND);
+      var vRaw = wrap(buf[i] - buf[iPrev]) / (dt * (i - iPrev || 1));
+      side.vF += (1 - Math.exp(-PID_WF * dt)) * (vRaw - side.vF);
       var e = wrap(target - mLag);
-      side.I = Math.max(-0.6 * TMAX, Math.min(0.6 * TMAX, side.I + 5.0 * e * dt));
-      tq = 9.0 * e + side.I - 1.5 * vel;
+      var unsat = PID_KP * e + side.I - PID_KD * side.vF;
+      tq = Math.max(-TMAX, Math.min(TMAX, unsat));
+      if (unsat === tq || e * unsat < 0) {
+        side.I = Math.max(-0.9 * TMAX, Math.min(0.9 * TMAX, side.I + PID_KI * e * dt));
+      }
     } else {
       /* public best practice, deployed correctly:
          steady-state Kalman estimate + one-tick forward prediction →
@@ -237,19 +245,16 @@
     ctx.stroke();
   }
 
-  var R0 = document.getElementById('proof-r0'), R1 = document.getElementById('proof-r1');
+  // one number per side: settling time — definitions live in the spec fold
   var S0 = document.getElementById('proof-s0'), S1 = document.getElementById('proof-s1');
   var SETTLE_WORD = cv.getAttribute('data-l-settle') || 'settling';
   var lastTxt = -1;
-  function rms(h) { var s = 0; for (var k = 0; k < h.length; k++) s += h[k] * h[k]; return Math.sqrt(s / (h.length || 1)); }
   function draw(t) {
     ctx.clearRect(0, 0, Wc, Hc);
     drawRing(0); drawRing(1);
     drawStrip(0); drawStrip(1);
     if (t - lastTxt > 0.2) {
       lastTxt = t;
-      if (R0) R0.textContent = 'RMS ' + rms(S[0].errHist).toFixed(1) + '°';
-      if (R1) R1.textContent = 'RMS ' + rms(S[1].errHist).toFixed(1) + '°';
       if (S0) S0.textContent = S[0].settle !== null ? SETTLE_WORD + ' ' + S[0].settle.toFixed(1) + ' s' : SETTLE_WORD + ' —';
       if (S1) S1.textContent = S[1].settle !== null ? SETTLE_WORD + ' ' + S[1].settle.toFixed(1) + ' s' : SETTLE_WORD + ' —';
     }
@@ -371,8 +376,9 @@
     var t0 = tW;
     while (tW - t0 < 3.5) {
       warmStep();
-      var eL = Math.abs(wrap(target - S[0].th)) * R2D;
-      if (tW - t0 > 1.2 && eL > 15 && S[1].settle !== null) break;
+      // freeze at the telling moment: right settled, competent left still
+      // closing in (it always settles too — just later)
+      if (tW - t0 > 1.4 && S[1].settle !== null && S[0].settle === null) break;
     }
     simT = tW; lastJump = tW;
     draw(tW + 1);

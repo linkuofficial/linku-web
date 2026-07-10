@@ -169,16 +169,18 @@
     endObj();
   }
 
+  // slimmed 2026-07-09 (凜空: machine too heavy) — blade-like ring sections,
+  // smaller matte pivots; camera pulled back in the KF table below
   var R_OUT = 1.14, R_IN = 0.76, R_CORE = 0.335;
-  var T_OUT = 0.10, H_OUT = 0.30, T_IN = 0.075, H_IN = 0.16;
-  buildRing('out', R_OUT, groovedProfile(T_OUT, H_OUT, 0.022, 0.10, 0.024), 112);
-  buildRing('in', R_IN, chamferProfile(T_IN, H_IN, 0.018), 96);
+  var T_OUT = 0.065, H_OUT = 0.19, T_IN = 0.05, H_IN = 0.11;
+  buildRing('out', R_OUT, groovedProfile(T_OUT, H_OUT, 0.016, 0.07, 0.018), 112);
+  buildRing('in', R_IN, chamferProfile(T_IN, H_IN, 0.012), 96);
   var bossOuterEdge = R_OUT - T_OUT / 2 + 0.01;
-  buildBox('bossPX', (bossOuterEdge - 0.09), 0, 0, 0.20, 0.17, 0.13, 4);
-  buildBox('bossNX', -(bossOuterEdge - 0.09), 0, 0, 0.20, 0.17, 0.13, 4);
-  var pinOut = bossOuterEdge - 0.18, pinIn = R_IN + T_IN / 2 - 0.01;
-  buildBox('pinPX', (pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.055, 0.055, 4);
-  buildBox('pinNX', -(pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.055, 0.055, 4);
+  buildBox('bossPX', (bossOuterEdge - 0.065), 0, 0, 0.14, 0.12, 0.10, 4);
+  buildBox('bossNX', -(bossOuterEdge - 0.065), 0, 0, 0.14, 0.12, 0.10, 4);
+  var pinOut = bossOuterEdge - 0.12, pinIn = R_IN + T_IN / 2 - 0.01;
+  buildBox('pinPX', (pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.042, 0.042, 4);
+  buildBox('pinNX', -(pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.042, 0.042, 4);
   buildCore('coreShell', 'coreGlow', R_CORE);
 
   /* SDF-baked vertex AO — rings approximated as shells (rotation-invariant),
@@ -311,14 +313,15 @@
     'return c;}' +
     'void main(){' +
     'vec3 N=normalize(vN);vec3 V=normalize(-vView);float t=vType;vec3 col;' +
-    'if(t>2.5){' +
+    // emissive = core glow (type 3) only; type-4 bosses/pins went matte in the
+    // 2026-07-09 slimming ruling (supersedes the C3 glowing-pivot look)
+    'if(t>2.5&&t<3.5){' +
     'float th=0.75+0.25*sin(uT*0.8+vRnd*6.2831);' +
     'col=vec3(1.0,0.80,0.52)*2.25*th*uCoreBoost;' +
     '}else{' +
-    // t: 0 ring body / 1 chamfer facet / 2 core shell. t≥2.5 (core glow AND
-    // type-4 bosses/pins) took the emissive branch — approved C3 pivot glow.
-    'vec3 albedo=t<0.5?vec3(0.040,0.040,0.043):t<1.5?vec3(0.055,0.056,0.060):vec3(0.020,0.020,0.024);' +
-    'float rough=t<0.5?0.40:t<1.5?0.20:0.13;' +
+    // t: 0 ring body / 1 chamfer facet / 2 core shell / 4 matte boss+pin
+    'vec3 albedo=t<0.5?vec3(0.040,0.040,0.043):t<1.5?vec3(0.055,0.056,0.060):t<2.5?vec3(0.020,0.020,0.024):vec3(0.030,0.030,0.034);' +
+    'float rough=t<0.5?0.40:t<1.5?0.20:t<2.5?0.13:0.45;' +
     'rough+=(vRnd-0.5)*0.06;' +
     'vec3 R=reflect(-V,N);' +
     'float ndv=max(dot(N,V),0.0);' +
@@ -692,13 +695,14 @@
   var svIn = servo(8.4, -42 * Math.PI / 180, 2.6);
 
   /* ---------------- orchestration state ---------------- */
+  // camera pulled back ~22% (2026-07-09 slimming): same right-of-text screen
+  // position (cx/cz ratios preserved), machine smaller with breathing room
   var KF = [ // hero / statement / pillars / contact
-    { cx: 0.68, cy: -0.05, cz: -3.65, ex: 0, core: 1.00, sig: 0.06, exp: 0.92, glow: 1.00 },
-    { cx: 0.78, cy: -0.03, cz: -3.05, ex: 0, core: 1.25, sig: 0.04, exp: 0.95, glow: 1.20 },
-    { cx: 0.66, cy: 0.02, cz: -4.10, ex: 1, core: 1.00, sig: 0.12, exp: 0.88, glow: 0.80 },
-    { cx: 0.55, cy: -0.04, cz: -3.35, ex: 0, core: 1.10, sig: 0.25, exp: 0.94, glow: 1.00 },
+    { cx: 0.88, cy: -0.03, cz: -4.70, ex: 0, core: 1.00, sig: 0.06, exp: 0.92, glow: 0.85 },
+    { cx: 1.00, cy: -0.03, cz: -3.95, ex: 0, core: 1.25, sig: 0.04, exp: 0.95, glow: 1.00 },
+    { cx: 0.83, cy: 0.02, cz: -5.15, ex: 1, core: 1.00, sig: 0.12, exp: 0.88, glow: 0.70 },
+    { cx: 0.71, cy: -0.04, cz: -4.35, ex: 0, core: 1.10, sig: 0.25, exp: 0.94, glow: 0.85 },
   ];
-  var AMBIENT = { cx: 1.05, cy: 0.55, cz: -5.20, ex: 0, core: 0.75, sig: 0.05, exp: 0.75, glow: 0.65 };
   var sections = HOME ? [].slice.call(document.querySelectorAll('[data-screen-label]')) : [];
   var pillarEls = HOME ? [].slice.call(document.querySelectorAll('.pillar')) : [];
   var chapter = 0; // smoothed
