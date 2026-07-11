@@ -1,8 +1,8 @@
 :root {
   --bg: #0a0a0a;
   --cream: #e8e6e0;
-  --muted: #6a6a6a;
-  --muted-dim: #4a4a4a;
+  --muted: #969696;
+  --muted-dim: #777;
   --ghost: #1b1b1b;
   --line: rgba(232, 230, 224, 0.12);
   --live: oklch(0.72 0.16 150);
@@ -17,8 +17,8 @@
   --statement-max: 6rem;
   --pillar-max: 5rem;
   --contact-max: 8rem;
-  --caption-opacity: 0.45;
-  --label-opacity: 0.3;
+  --caption-opacity: 0.65;
+  --label-opacity: 0.55;
   --label-tracking: 0.35em;
   --reveal-duration: 0.75s;
   --reveal-distance: 28px;
@@ -42,6 +42,28 @@ body {
   font-weight: 300;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+}
+
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 10000;
+  padding: 12px 16px;
+  color: var(--bg);
+  background: var(--cream);
+  font: 500 13px/1.2 var(--body);
+  text-decoration: none;
+  transform: translateY(calc(-100% - 20px));
+  transition: transform 0.2s ease;
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+main:focus {
+  outline: none;
 }
 
 ::selection {
@@ -68,10 +90,10 @@ body {
   left: clamp(28px, 6vw, 96px);
   bottom: 22px;
   z-index: 90;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  font: 11px/32px var(--body);
+  font: 12px/42px var(--body);
   text-align: center;
   color: var(--muted);
   background: rgba(10, 10, 10, 0.55);
@@ -169,6 +191,7 @@ body::after {
 /* ---------- Custom dot cursor ---------- */
 .cursor-dot,
 .cursor-ring {
+  display: none;
   position: fixed;
   top: 0;
   left: 0;
@@ -177,6 +200,11 @@ body::after {
   z-index: 9999;
   transform: translate(-50%, -50%);
   mix-blend-mode: difference;
+}
+
+.cursor-ready .cursor-dot,
+.cursor-ready .cursor-ring {
+  display: block;
 }
 
 .cursor-dot {
@@ -199,12 +227,12 @@ body::after {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  body {
+  .cursor-ready body {
     cursor: none;
   }
 
-  a,
-  button {
+  .cursor-ready a,
+  .cursor-ready button {
     cursor: none;
   }
 }
@@ -271,7 +299,7 @@ nav {
 .nav-links a {
   font-family: var(--body);
   font-weight: 400;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.35em;
   text-transform: uppercase;
   color: var(--muted);
@@ -313,7 +341,7 @@ nav {
   gap: 9px;
   font-family: var(--body);
   font-weight: 400;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.25em;
 }
 
@@ -480,7 +508,7 @@ html[lang="en"] .pillar-title {
 }
 
 .scroll-cue span {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.35em;
   text-transform: uppercase;
   color: var(--muted);
@@ -488,7 +516,7 @@ html[lang="en"] .pillar-title {
 
 /* ---------- Section label ---------- */
 .label {
-  font-size: 0.65rem;
+  font-size: 11px;
   font-weight: 400;
   letter-spacing: var(--label-tracking);
   text-transform: uppercase;
@@ -525,11 +553,15 @@ html[lang="en"] .pillar-title {
 }
 
 .statement-body .sg {
-  opacity: 0;
+  opacity: 1;
   transition: opacity var(--reveal-duration) var(--reveal-ease);
 }
 
-.statement-body .sg.in {
+.js .statement-body .sg {
+  opacity: 0;
+}
+
+.js .statement-body .sg.in {
   opacity: 1;
 }
 
@@ -820,7 +852,7 @@ html[lang="en"] .pillar-title {
   align-items: baseline;
   justify-content: center;
   gap: 18px;
-  font-size: 0.6rem;
+  font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.3em;
   text-transform: uppercase;
@@ -842,9 +874,9 @@ html[lang="en"] .pillar-title {
 .proof-hint,
 .proof-hint-touch {
   margin-top: clamp(20px, 3vh, 32px);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.2em;
-  color: #555;
+  color: rgba(232, 230, 224, 0.62);
 }
 
 /* desktop shows the cursor hint; touch shows the tap hint + disturb button */
@@ -862,20 +894,32 @@ html[lang="en"] .pillar-title {
   }
 }
 
-.proof-play,
-.proof-disturb {
-  margin-top: 16px;
+.proof-controls {
+  display: none;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.js .proof-controls {
+  display: flex;
+}
+
+.proof-control {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--amber);
   background: none;
   border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
-  padding: 8px 18px;
+  min-height: 44px;
+  padding: 10px 18px;
   cursor: pointer;
   letter-spacing: 0.08em;
 }
 
-.proof-disturb:active {
+.proof-control:hover,
+.proof-control:focus-visible,
+.proof-control:active {
   background: color-mix(in srgb, var(--amber) 14%, transparent);
 }
 
@@ -889,7 +933,7 @@ html[lang="en"] .pillar-title {
   cursor: pointer;
   list-style: none;
   padding: 14px 0;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 400;
   letter-spacing: 0.3em;
   text-transform: uppercase;
@@ -924,7 +968,7 @@ html[lang="en"] .pillar-title {
   font-size: 11px;
   line-height: 2.1;
   letter-spacing: 0.05em;
-  color: rgba(232, 230, 224, 0.5);
+  color: rgba(232, 230, 224, 0.68);
   padding: 2px 0 18px;
 }
 
@@ -938,12 +982,13 @@ html[lang="en"] .pillar-title {
 }
 
 .proof-note {
-  margin-top: clamp(18px, 3vh, 28px);
+  margin-top: 16px;
   font-family: var(--mono);
-  font-size: 10px;
-  line-height: 1.9;
+  font-size: 12px;
+  line-height: 1.7;
   letter-spacing: 0.06em;
-  color: rgba(232, 230, 224, 0.28);
+  color: rgba(232, 230, 224, 0.62);
+  max-width: 76ch;
 }
 
 @media (max-width: 720px) {
@@ -1072,7 +1117,7 @@ html[lang="en"] .pillar-title {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.25em;
   text-transform: uppercase;
   color: var(--live);
@@ -1186,7 +1231,7 @@ html[lang="en"] .pillar-title {
   font-size: 0.7rem;
   letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.55);
   padding-top: 1.1em;
 }
 
@@ -1230,7 +1275,7 @@ html[lang="en"] .pillar-title {
   line-height: 1.8;
   letter-spacing: 0.02em;
   max-width: 36ch;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .contact-mail {
@@ -1255,10 +1300,10 @@ footer {
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  font-size: 0.6rem;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 /* ---------- Cross-document view transitions ----------
@@ -1290,13 +1335,18 @@ footer {
 
 /* ---------- Reveal ---------- */
 .reveal {
+  opacity: 1;
+  transform: none;
+}
+
+.js .reveal {
   opacity: 0;
   transform: translateY(var(--reveal-distance));
   transition: opacity var(--reveal-duration) var(--reveal-ease),
     transform var(--reveal-duration) var(--reveal-ease);
 }
 
-.reveal.in {
+.js .reveal.in {
   opacity: 1;
   transform: none;
 }
@@ -1304,7 +1354,9 @@ footer {
 @media (prefers-reduced-motion: reduce) {
 
   .reveal,
-  .statement-body .sg {
+  .js .reveal,
+  .statement-body .sg,
+  .js .statement-body .sg {
     opacity: 1;
     transform: none;
     transition: none;
@@ -1330,6 +1382,21 @@ footer {
   nav {
     transition: none;
   }
+}
+
+html.motion-paused body::before,
+html.motion-paused body::after,
+html.motion-paused .scroll-cue,
+html.motion-paused .scroll-cue .bar::after,
+html.motion-paused .badge .dot {
+  animation-play-state: paused !important;
+}
+
+html.motion-paused .hero-sub,
+html.motion-paused .hero-title .l1,
+html.motion-paused .hero-title .l2,
+html.motion-paused .hero-title .l3 {
+  animation: none;
 }
 
 /* Narrow or squarish viewports: small copy inevitably crosses the scene's
@@ -1526,10 +1593,17 @@ html[lang="ja"] .proof-hint-touch {
   letter-spacing: 0.12em;
 }
 
-html[lang="zh-Hant"] .proof-disturb,
-html[lang="ja"] .proof-disturb {
+html[lang="zh-Hant"] .proof-control,
+html[lang="ja"] .proof-control {
   font-family: var(--cjk-body);
   letter-spacing: 0.16em;
+}
+
+html[lang="zh-Hant"] .skip-link,
+html[lang="ja"] .skip-link,
+html[lang="zh-Hant"] .proof-note,
+html[lang="ja"] .proof-note {
+  font-family: var(--cjk-body);
 }
 
 html[lang="zh-Hant"] .proof-same,
@@ -1576,8 +1650,12 @@ html[lang="ja"] .more-link {
    links and the language switch stay legible over any background. */
 @media (max-width: 520px) {
   nav {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    row-gap: 8px;
     mix-blend-mode: normal;
-    padding: 22px 20px 32px;
+    padding: 14px 20px 28px;
     /* top-down scrim: guarantees the brand/links/language switch always sit
        on a dark-enough backing, fading to transparent so there is no hard
        edge cutting across the deep-space scene below */
@@ -1593,15 +1671,21 @@ html[lang="ja"] .more-link {
   }
 
   .nav-right {
-    gap: 14px;
+    display: contents;
   }
 
   .nav-links {
-    gap: 12px;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-end;
+    gap: 8px 16px;
   }
 
   .nav-links a {
-    font-size: 9px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
     letter-spacing: 0.12em;
     color: rgba(232, 230, 224, 0.72);
     text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
@@ -1615,11 +1699,9 @@ html[lang="ja"] .more-link {
   .lang-switch .sep {
     text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
   }
-}
 
-/* Tiny screens: in-page anchors (e.g. Work) yield to the real page links */
-@media (max-width: 380px) {
-  .nav-links a[href^="#"] {
-    display: none;
+  .lang-switch {
+    grid-column: 2;
+    grid-row: 1;
   }
 }

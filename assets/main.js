@@ -1,3 +1,7 @@
+/* Enhancement gate: CSS remains readable with no JS and only hides reveal
+   targets after this script has actually started. */
+document.documentElement.classList.add('js');
+
 /* ---------- Tweak runtime defaults (read by vanilla scripts) ---------- */
 window.__tweaks = {
   stagger: 120,
@@ -52,6 +56,7 @@ window.__tweaks = {
   const ring = document.querySelector('.cursor-ring');
   if (!dot || !ring) return;
   if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  document.documentElement.classList.add('cursor-ready');
   let mx = innerWidth / 2, my = innerHeight / 2;
   let rx = mx, ry = my;
   addEventListener('mousemove', (e) => {
@@ -102,6 +107,10 @@ window.__tweaks = {
 /* ---------- Scroll reveal ---------- */
 (function () {
   const els = document.querySelectorAll('.reveal');
+  if (!('IntersectionObserver' in window)) {
+    els.forEach((el) => el.classList.add('in'));
+    return;
+  }
   const io = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
       if (entry.isIntersecting) {
@@ -122,7 +131,7 @@ window.__tweaks = {
   const sb = document.querySelector('.statement-body');
   if (!sb) return;
   const groups = sb.querySelectorAll('.sg');
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || !('IntersectionObserver' in window)) {
     groups.forEach((g) => g.classList.add('in'));
     return;
   }

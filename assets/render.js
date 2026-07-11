@@ -26,6 +26,42 @@
   var HOME = !!document.querySelector('[data-screen-label="Hero"]');
   var INNER = !HOME; // inner pages (about/technology): pure deep space, no machine
 
+  // Reduced-motion gets a zero-GL poster. The canvas remains untouched, so a
+  // visitor who explicitly presses Play can still opt into the full renderer.
+  function staticPoster() {
+    var stars = '<g fill="%23e8e6e0" fill-opacity=".13">';
+    for (var i = 0; i < 28; i++) {
+      var x = (i * 347 + 83) % 1200, y = (i * 193 + 61) % 700;
+      stars += '<circle cx="' + x + '" cy="' + y + '" r="' + (i % 5 ? 1 : 2) + '"/>';
+    }
+    stars += '</g>';
+    var machine = HOME ? '<g fill="none" transform="translate(830 320) rotate(-18)">'
+      + '<ellipse rx="205" ry="88" stroke="%238194ab" stroke-opacity=".48" stroke-width="10"/>'
+      + '<ellipse rx="118" ry="188" stroke="%23e8e6e0" stroke-opacity=".35" stroke-width="8"/>'
+      + '<circle r="47" fill="%23e8b478" fill-opacity=".16" stroke="%23e8b478" stroke-opacity=".75" stroke-width="3"/>'
+      + '</g>' : '';
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">'
+      + '<defs><radialGradient id="g"><stop stop-color="%23e8b478" stop-opacity=".12"/><stop offset="1" stop-color="%230a0a0a" stop-opacity="0"/></radialGradient></defs>'
+      + '<rect width="1200" height="700" fill="%230a0a0a"/><circle cx="' + (HOME ? 830 : 600) + '" cy="310" r="360" fill="url(%23g)"/>'
+      + stars + machine + '</svg>';
+    canvas.style.background = 'center / cover no-repeat url("data:image/svg+xml,'
+      + encodeURIComponent(svg.replace(/%23/g, '#')) + '")';
+  }
+  function prebootToggle() {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'scene-toggle'; b.textContent = '▶';
+    b.setAttribute('aria-label', canvas.getAttribute('data-l-play') || 'Play background animation');
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', function () {
+      b.remove(); reduce = false;
+      document.documentElement.classList.remove('motion-paused');
+      canvas.style.background = 'none';
+      try { document.dispatchEvent(new CustomEvent('linku-motion-toggle', { detail: { running: true } })); } catch (e) { }
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(boot); else boot();
+    });
+    document.body.appendChild(b);
+  }
+
   // Heavy init (geometry+AO bake+GL, tens of ms on weak mobiles) runs on the
   // first animation frame, off the parse path (no DCL block / long task).
   // Body keeps flat indentation: re-indenting would cost ~2KB of byte budget.
@@ -173,15 +209,17 @@
   // smaller matte pivots; camera pulled back in the KF table below
   var R_OUT = 1.14, R_IN = 0.76, R_CORE = 0.335;
   var T_OUT = 0.065, H_OUT = 0.19, T_IN = 0.05, H_IN = 0.11;
-  buildRing('out', R_OUT, groovedProfile(T_OUT, H_OUT, 0.016, 0.07, 0.018), 112);
-  buildRing('in', R_IN, chamferProfile(T_IN, H_IN, 0.012), 96);
-  var bossOuterEdge = R_OUT - T_OUT / 2 + 0.01;
-  buildBox('bossPX', (bossOuterEdge - 0.065), 0, 0, 0.14, 0.12, 0.10, 4);
-  buildBox('bossNX', -(bossOuterEdge - 0.065), 0, 0, 0.14, 0.12, 0.10, 4);
-  var pinOut = bossOuterEdge - 0.12, pinIn = R_IN + T_IN / 2 - 0.01;
-  buildBox('pinPX', (pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.042, 0.042, 4);
-  buildBox('pinNX', -(pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.042, 0.042, 4);
-  buildCore('coreShell', 'coreGlow', R_CORE);
+  if (!INNER) {
+    buildRing('out', R_OUT, groovedProfile(T_OUT, H_OUT, 0.016, 0.07, 0.018), 112);
+    buildRing('in', R_IN, chamferProfile(T_IN, H_IN, 0.012), 96);
+    var bossOuterEdge = R_OUT - T_OUT / 2 + 0.01;
+    buildBox('bossPX', (bossOuterEdge - 0.065), 0, 0, 0.14, 0.12, 0.10, 4);
+    buildBox('bossNX', -(bossOuterEdge - 0.065), 0, 0, 0.14, 0.12, 0.10, 4);
+    var pinOut = bossOuterEdge - 0.12, pinIn = R_IN + T_IN / 2 - 0.01;
+    buildBox('pinPX', (pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.042, 0.042, 4);
+    buildBox('pinNX', -(pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.042, 0.042, 4);
+    buildCore('coreShell', 'coreGlow', R_CORE);
+  }
 
   /* SDF-baked vertex AO — rings approximated as shells (rotation-invariant),
      each ring uses its exact torus against itself */
@@ -216,7 +254,7 @@
     }
     return ao;
   }
-  var aoArr = bakeAO();
+  var aoArr = INNER ? new Float32Array(0) : bakeAO();
   var NV = pos.length / 3, MESH_STRIDE = 9;
   var meshData = new Float32Array(NV * MESH_STRIDE);
   for (var vi = 0; vi < NV; vi++) {
@@ -228,8 +266,8 @@
 
   /* -------------- particles (L2 accretion) + stars (L0) -------------- */
   // allocate desktop count; drawn count follows live canvas size (applySize)
-  var NP = HOME ? 640 : 380;
-  var NP_NARROW = HOME ? 340 : 200;
+  var NP = HOME ? 640 : 0;
+  var NP_NARROW = HOME ? 340 : 0;
   var drawNP = NP;
   var NS = 140;
   var P_STRIDE = 6; // x y z size alpha warm
@@ -521,16 +559,20 @@
     // computed here, not at module init: a later demotion to direct mode must
     // recompile with the in-shader grade, or direct draws ship raw linear HDR
     var DIRECT_DEF = MODE === 'pipe' ? '' : '#define DIRECT 1\n';
-    P.scene = prog(SCENE_VS, DIRECT_DEF + SCENE_FS, ['aPos', 'aNrm', 'aAO', 'aType', 'aRnd']);
+    if (!INNER) P.scene = prog(SCENE_VS, DIRECT_DEF + SCENE_FS, ['aPos', 'aNrm', 'aAO', 'aType', 'aRnd']);
     P.points = prog(POINT_VS, DIRECT_DEF + POINT_FS, ['aPos', 'aSize', 'aAlpha', 'aWarm']);
     if (MODE === 'pipe') {
-      P.bright = prog(QUAD_VS, BRIGHT_FS, ['p']);
-      P.blur = prog(QUAD_VS, BLUR_FS, ['p']);
+      if (!INNER) {
+        P.bright = prog(QUAD_VS, BRIGHT_FS, ['p']);
+        P.blur = prog(QUAD_VS, BLUR_FS, ['p']);
+      }
       P.comp = prog(QUAD_VS, COMP_FS, ['p']);
     }
-    meshBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, meshBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, meshData, gl.STATIC_DRAW);
+    if (!INNER) {
+      meshBuf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, meshBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, meshData, gl.STATIC_DRAW);
+    }
     pointBuf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, pointBuf);
     gl.bufferData(gl.ARRAY_BUFFER, pointData, gl.DYNAMIC_DRAW);
@@ -590,7 +632,7 @@
     var ms = null, msRbC = null, msRbD = null;
     try {
       var samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES) || 0);
-      if (samples > 1) {
+      if (!INNER && samples > 1) {
         ms = gl.createFramebuffer();
         gl.bindFramebuffer(gl.FRAMEBUFFER, ms);
         msRbC = gl.createRenderbuffer();
@@ -613,7 +655,7 @@
       ms = msRbC = msRbD = null;
     }
     msaaOK = !!ms;
-    var scene = texFBO(W, H, !msaaOK); // no MSAA → depth lives on the scene FBO
+    var scene = texFBO(W, H, !msaaOK && !INNER); // stars need no depth attachment
     // check completeness on the buffer the pipeline actually renders into
     gl.bindFramebuffer(gl.FRAMEBUFFER, scene.f);
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
@@ -628,13 +670,13 @@
     var w2 = Math.max(2, W >> 1), h2 = Math.max(2, H >> 1);
     var w4 = Math.max(2, W >> 2), h4 = Math.max(2, H >> 2);
     var w8 = Math.max(2, W >> 3), h8 = Math.max(2, H >> 3);
-    fbo = {
-      ms: ms, msRbC: msRbC, msRbD: msRbD, scene: scene,
-      bright: texFBO(w2, h2),
-      b0a: texFBO(w2, h2), b0b: texFBO(w2, h2),
-      b1a: texFBO(w4, h4), b1b: texFBO(w4, h4),
-      b2a: texFBO(w8, h8), b2b: texFBO(w8, h8),
-    };
+    fbo = { ms: ms, msRbC: msRbC, msRbD: msRbD, scene: scene };
+    if (!INNER) {
+      fbo.bright = texFBO(w2, h2);
+      fbo.b0a = texFBO(w2, h2); fbo.b0b = texFBO(w2, h2);
+      fbo.b1a = texFBO(w4, h4); fbo.b1b = texFBO(w4, h4);
+      fbo.b2a = texFBO(w8, h8); fbo.b2b = texFBO(w8, h8);
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     return true;
   }
@@ -936,8 +978,8 @@
   var bloomOff = false;
   function render(dt) {
     var st = computeState(dt);
-    var aOut = servoTick(svOut, dt * st.servoRate, st.hold);
-    var aIn = servoTick(svIn, dt * st.servoRate, st.hold);
+    var aOut = INNER ? 0 : servoTick(svOut, dt * st.servoRate, st.hold);
+    var aIn = INNER ? 0 : servoTick(svIn, dt * st.servoRate, st.hold);
     if (!INNER) updateParticles(dt, st); // no accretion on inner pages
 
     if (MODE === 'pipe') {
@@ -1088,18 +1130,23 @@
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'scene-toggle';
-    b.textContent = '▶'; // ▶
-    b.setAttribute('aria-label', L[0]);
-    b.setAttribute('aria-pressed', 'false');
+    function sync() {
+      b.textContent = running ? '■' : '▶';
+      b.setAttribute('aria-label', running ? L[1] : L[0]);
+      b.setAttribute('aria-pressed', running ? 'true' : 'false');
+    }
+    sync();
     b.addEventListener('click', function () {
       running = !running;
       if (running) {
-        b.textContent = '■'; b.setAttribute('aria-label', L[1]); b.setAttribute('aria-pressed', 'true');
+        document.documentElement.classList.remove('motion-paused');
         startLoop();
       } else {
-        b.textContent = '▶'; b.setAttribute('aria-label', L[0]); b.setAttribute('aria-pressed', 'false');
+        document.documentElement.classList.add('motion-paused');
         stopLoop();
       }
+      sync();
+      try { document.dispatchEvent(new CustomEvent('linku-motion-toggle', { detail: { running: running } })); } catch (e) { }
     });
     document.body.appendChild(b);
   }
@@ -1152,16 +1199,16 @@
     get chapter() { return chapter; },
   };
 
-  if (reduce) {
-    renderStill();
-    if (STILL) { snapOverlay(); return; }
-    injectToggle();
-    return;
-  }
   running = true;
   startLoop();
+  injectToggle();
   } // end boot()
 
-  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(boot);
+  if (reduce) {
+    staticPoster();
+    document.documentElement.classList.add('motion-paused');
+    window.__scene = { mode: 'poster' };
+    if (!STILL) prebootToggle();
+  } else if (typeof requestAnimationFrame === 'function') requestAnimationFrame(boot);
   else boot();
 })();

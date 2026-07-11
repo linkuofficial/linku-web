@@ -27,7 +27,7 @@ Required verification: node scripts/check.mjs 全 PASS ＋ 本機 http 實看三
 ### P0 護欄與量測（半天）
 - 記錄基線：Lighthouse（桌面＋行動模擬）LCP/CLS/INP/總傳輸量；Performance trace 記 hero FPS。數字填入本檔 HANDOFF 區。
 - check.mjs 新增兩節（沿用「任一 FAIL → exit 1」慣例，門檻數字實作時可微調但必須存在）：
-  - **4. 資源預算**：assets/render.js ≤ 52KB、assets/main.js ≤ 16KB、assets/styles.css ≤ 44KB、assets/proof.js ≤ 16KB（未壓縮；render.js 為 P1 新檔、proof.js 為 P-proof 新檔。歷史：P0 估 render 48K／proof 12K→14K；2026-07-08 內圈自審修復——fallback demote 重編譯、FBO 完整性、量測快取、120Hz 時鐘、各 fallback 防護——實付約 +3.5KB，調至 52K／16K 並留小幅餘裕；已上線資產一律 optional:false，檔案消失即 FAIL）。
+  - **4. 資源預算**：2026-07-11 改以 Brotli Q11 衡量實際傳輸成本：assets/render.js ≤ 18KB、assets/proof.js ≤ 7KB、assets/main.js ≤ 4KB、assets/styles.css ≤ 10KB，並保留約 20% 維護空間；已上線資產一律 optional:false，檔案消失即 FAIL。
   - **5. 外部 origin 白名單**：所有頁面的 script src／link href 外部 origin 僅允許 fonts.googleapis.com、fonts.gstatic.com；其他一律 FAIL（防手滑引 CDN，守住零依賴）。
 - 小修：canvas＋游標 div 加 `aria-hidden="true"`（九頁）；resize 防抖＋高度變化 <80px 不重建粒子（修手機網址列閃跳）。
 

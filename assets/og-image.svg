@@ -1,39 +1,70 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
   <defs>
-    <radialGradient id="glow" cx="22%" cy="30%" r="60%">
-      <stop offset="0%" stop-color="#2ec27e" stop-opacity="0.14"/>
-      <stop offset="100%" stop-color="#2ec27e" stop-opacity="0"/>
+    <radialGradient id="stage" cx="72%" cy="48%" r="48%">
+      <stop offset="0" stop-color="#e8b478" stop-opacity=".13"/>
+      <stop offset=".48" stop-color="#8194ab" stop-opacity=".055"/>
+      <stop offset="1" stop-color="#0a0a0a" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#d7dde2" stop-opacity=".74"/>
+      <stop offset=".42" stop-color="#8194ab" stop-opacity=".42"/>
+      <stop offset="1" stop-color="#303945" stop-opacity=".5"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#8194ab" stop-opacity=".22"/>
+      <stop offset=".55" stop-color="#e8e6e0" stop-opacity=".72"/>
+      <stop offset="1" stop-color="#8194ab" stop-opacity=".18"/>
+    </linearGradient>
+    <radialGradient id="core">
+      <stop offset="0" stop-color="#f7d9a8"/>
+      <stop offset=".38" stop-color="#e8b478" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#e8b478" stop-opacity=".06"/>
+    </radialGradient>
+    <filter id="bloom" x="-150%" y="-150%" width="400%" height="400%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
   </defs>
 
   <rect width="1200" height="630" fill="#0a0a0a"/>
-  <rect width="1200" height="630" fill="url(#glow)"/>
+  <rect width="1200" height="630" fill="url(#stage)"/>
 
-  <!-- faint particle field -->
-  <g fill="#e8e6e0" fill-opacity="0.10">
-    <circle cx="960" cy="120" r="3"/>
-    <circle cx="1040" cy="210" r="2"/>
-    <circle cx="880" cy="240" r="2"/>
-    <circle cx="1100" cy="330" r="3"/>
-    <circle cx="980" cy="430" r="2"/>
-    <circle cx="1060" cy="520" r="2"/>
-    <circle cx="900" cy="500" r="3"/>
+  <g fill="#e8e6e0" fill-opacity=".12">
+    <circle cx="695" cy="92" r="1.8"/><circle cx="782" cy="137" r="1.1"/>
+    <circle cx="882" cy="76" r="1.4"/><circle cx="1048" cy="126" r="2"/>
+    <circle cx="1132" cy="218" r="1"/><circle cx="748" cy="278" r="1.2"/>
+    <circle cx="1090" cy="394" r="1.6"/><circle cx="1018" cy="523" r="1.1"/>
+    <circle cx="844" cy="558" r="1.8"/><circle cx="1170" cy="548" r="1.2"/>
   </g>
 
-  <!-- kicker -->
-  <text x="96" y="180" fill="#6a6a6a" font-family="Arial, Helvetica, sans-serif"
-        font-size="24" letter-spacing="6">ARTIFICIAL INTELLIGENCE &#215; PHYSICAL WORLD</text>
+  <!-- Precision gimbal core: edge intelligence held inside control hardware. -->
+  <g transform="translate(900 323) rotate(-12)">
+    <ellipse rx="232" ry="116" fill="none" stroke="#050607" stroke-width="34"/>
+    <ellipse rx="232" ry="116" fill="none" stroke="url(#steel)" stroke-width="18"/>
+    <ellipse rx="232" ry="116" fill="none" stroke="url(#edge)" stroke-width="3"/>
+    <path d="M-224 0h-28m476 0h28" stroke="#8194ab" stroke-opacity=".55" stroke-width="9"/>
+    <rect x="-262" y="-17" width="34" height="34" fill="#1c2228" stroke="#8194ab" stroke-opacity=".42"/>
+    <rect x="228" y="-17" width="34" height="34" fill="#1c2228" stroke="#8194ab" stroke-opacity=".42"/>
 
-  <!-- wordmark -->
-  <text x="92" y="370" fill="#e8e6e0" font-family="Arial, Helvetica, sans-serif"
-        font-size="180" font-weight="800" letter-spacing="8">LINKU</text>
+    <g transform="rotate(57)">
+      <ellipse rx="147" ry="74" fill="none" stroke="#050607" stroke-width="26"/>
+      <ellipse rx="147" ry="74" fill="none" stroke="url(#steel)" stroke-width="13"/>
+      <ellipse rx="147" ry="74" fill="none" stroke="#e8e6e0" stroke-opacity=".38" stroke-width="2"/>
+    </g>
 
-  <!-- tagline -->
-  <text x="96" y="450" fill="#e8e6e0" fill-opacity="0.85" font-family="Arial, Helvetica, sans-serif"
-        font-size="44" font-weight="300">Intelligence, made physical.</text>
+    <circle r="82" fill="#e8b478" fill-opacity=".12" filter="url(#bloom)"/>
+    <circle r="51" fill="url(#core)" fill-opacity=".92"/>
+    <path d="M0-51 44-25 44 25 0 51-44 25-44-25Z" fill="#151719" fill-opacity=".68" stroke="#f7d9a8" stroke-opacity=".58" stroke-width="2"/>
+    <path d="M0-51V0L44 25M0 0-44 25M0 0 44-25" fill="none" stroke="#e8b478" stroke-opacity=".42"/>
+    <circle r="8" fill="#f7d9a8"/>
+  </g>
 
-  <!-- footer -->
-  <circle cx="104" cy="556" r="7" fill="#2ec27e"/>
-  <text x="124" y="565" fill="#e8e6e0" font-family="Arial, Helvetica, sans-serif"
-        font-size="30" letter-spacing="2">linku.tech</text>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="88" y="118" fill="#969696" font-size="20" font-weight="600" letter-spacing="6">EDGE AI  /  CONTROL  /  INTELLIGENT MACHINES</text>
+    <text x="82" y="305" fill="#e8e6e0" font-size="150" font-weight="800" letter-spacing="7">LINKU</text>
+    <text x="88" y="380" fill="#e8e6e0" fill-opacity=".88" font-size="38" font-weight="300">Intelligence, made physical.</text>
+    <line x1="88" y1="474" x2="490" y2="474" stroke="#e8e6e0" stroke-opacity=".14"/>
+    <circle cx="96" cy="532" r="5" fill="#e8b478"/>
+    <text x="116" y="541" fill="#e8e6e0" fill-opacity=".74" font-size="26" letter-spacing="2">linku.tech</text>
+  </g>
+
 </svg>

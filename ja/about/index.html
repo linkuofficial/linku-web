@@ -49,7 +49,7 @@
        If you add/change copy, update the &text= string below; missing glyphs
        quietly fall back to the system CJK font (no broken layout). -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&text=ホーム。プロジェクト。お問い合わせ。概要。LINKUについて。人工知能と物理世界の境界で活動する初期段階の技術プロジェクト。私たちがつくるシステムは、計算するだけでなく、現実世界で感知し、判断し、行動します。注力するのはエッジ、制御システム、そして小型でカスタマイズ可能な知能機械。手法はハードウェアとソフトウェアの協調設計です。低コストの市販に、コンパクトでシーンに最適化したモデルを組み合わせ、同等の一般的な手法を上回る全体性能を実現します。目指すのは、特定の現実の現場のための実用的で展開可能な知能——より大きなモデルではなく、より賢い全体システムです。最初の公開はインフラのエッジで稼働するライブのインタラクティブな知識グラフ。続きは準備中。詳細。設立。拠点。創業者。領域。連絡先。台北、台湾。凜空。つくろう。かたちにしたい構想はありますか？お気軽にご連絡ください。人工知能 × 物理世界。私たちは、人工知能と物理世界を融合させることに取り組んでいます。（）&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&text=ホーム。プロジェクト。お問い合わせ。概要。LINKUについて。人工知能と物理世界の境界で活動する初期段階の技術プロジェクト。私たちがつくるシステムは、計算するだけでなく、現実世界で感知し、判断し、行動します。注力するのはエッジ、制御システム、そして小型でカスタマイズ可能な知能機械。手法はハードウェアとソフトウェアの協調設計です。低コストの市販に、コンパクトでシーンに最適化したモデルを組み合わせ、同等の一般的な手法を上回る全体性能を実現します。目指すのは、特定の現実の現場のための実用的で展開可能な知能——より大きなモデルではなく、より賢い全体システムです。最初の公開はインフラのエッジで稼働するライブのインタラクティブな知識グラフ。続きは準備中。詳細。設立。拠点。創業者。領域。連絡先。台北、台湾。凜空。つくろう。かたちにしたい構想はありますか？お気軽にご連絡ください。人工知能 × 物理世界。私たちは、人工知能と物理世界を融合させることに取り組んでいます。（）本文へ移動分野超え念探索横&display=swap"
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
@@ -99,11 +99,12 @@
 </head>
 
 <body>
+  <a class="skip-link" href="#top">本文へ移動</a>
   <canvas id="particles" aria-hidden="true" data-l-play="背景アニメーションを再生" data-l-pause="背景アニメーションを停止"></canvas>
   <div class="cursor-ring" aria-hidden="true"></div>
   <div class="cursor-dot" aria-hidden="true"></div>
 
-  <nav>
+  <nav aria-label="メインナビゲーション">
     <a href="/ja/" class="brand">LINKU</a>
     <div class="nav-right">
       <ul class="nav-links">
@@ -120,7 +121,7 @@
     </div>
   </nav>
 
-  <div class="wrap" id="top">
+  <main class="wrap" id="top" tabindex="-1">
 
     <header class="about-head section-pad" data-screen-label="About">
       <div class="label reveal">概要</div>
@@ -132,7 +133,7 @@
       <section class="about">
       <p class="about-body reveal">私たちがつくるシステムは、計算するだけでなく、現実世界で感知し、判断し、行動します。</p>
       <p class="about-body reveal">注力するのはエッジAI、制御システム、そして小型でカスタマイズ可能な知能機械。手法はハードウェアとソフトウェアの協調設計です。コンパクトでシーンに最適化したエッジモデルとハードウェアを協調させ、同等のハードウェア上の一般的な手法を上回る全体性能を実現します。目指すのは、特定の現実の現場のための実用的で展開可能な知能——より大きなモデルではなく、より賢い全体システムです。</p>
-      <p class="about-body reveal">最初の公開プロジェクトはNeblux、知能とインフラのエッジで稼働するライブのインタラクティブな知識グラフです。続きは準備中です。</p>
+      <p class="about-body reveal">最初の公開プロジェクトはNeblux、分野を超えた概念のつながりを探索する、ライブでインタラクティブな分野横断型知識グラフです。続きは準備中です。</p>
     </section>
 
       <section class="about-details">
@@ -160,7 +161,7 @@
       </footer>
     </section>
 
-  </div>
+  </main>
 
   <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>

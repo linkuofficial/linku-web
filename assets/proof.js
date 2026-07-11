@@ -1,3 +1,41 @@
+/* Settling-stat event state is kept pure so Node can test the same logic the
+   browser uses. It deliberately tracks the target at the last marked event:
+   a pointer aim that materially changes that target starts a fresh window. */
+var ProofStats = (function () {
+  'use strict';
+  var TAU = Math.PI * 2;
+  function wrap(a) { return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
+  function create(sides, threshold) {
+    var jumpT = -1, jumpTarget = 0;
+    function mark(t, target) {
+      jumpT = t; jumpTarget = target;
+      sides.forEach(function (s) { s.inBand = -1; s.settle = null; });
+    }
+    function targetChanged(t, target) {
+      if (jumpT < 0 || Math.abs(wrap(target - jumpTarget)) >= threshold) {
+        mark(t, target);
+        return true;
+      }
+      return false;
+    }
+    function settle(t, target, band, hold) {
+      sides.forEach(function (s) {
+        if (jumpT < 0 || s.settle !== null) return;
+        if (Math.abs(wrap(target - s.th)) < band) {
+          if (s.inBand < 0) s.inBand = t;
+          else if (t - s.inBand > hold) s.settle = s.inBand - jumpT;
+        } else s.inBand = -1;
+      });
+    }
+    return {
+      mark: mark, targetChanged: targetChanged, settle: settle,
+      get jumpT() { return jumpT; }, get jumpTarget() { return jumpTarget; },
+    };
+  }
+  return { wrap: wrap, create: create };
+})();
+if (typeof module !== 'undefined' && module.exports) module.exports = ProofStats;
+
 /* ============================================================
    Proof — "Same hardware, two outcomes." (/technology/)
    Two identical simulated plants, one shared noise sequence. Left: a
@@ -9,13 +47,15 @@
    ============================================================ */
 (function () {
   'use strict';
+  if (typeof document === 'undefined') return;
   var cv = document.getElementById('proof-canvas');
   if (!cv) return;
   var ctx = cv.getContext('2d');
   if (!ctx) return;
 
   var TAU = Math.PI * 2, D2R = Math.PI / 180, R2D = 180 / Math.PI;
-  function wrap(a) { return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
+  var wrap = ProofStats.wrap;
+  var random = typeof window.__proofRandom === 'function' ? window.__proofRandom : Math.random;
 
   // solid palette tokens come from the stylesheet (single source of truth)
   var rootCss = getComputedStyle(document.documentElement);
@@ -41,8 +81,8 @@
 
   function gauss() {
     var u = 0, v = 0;
-    while (!u) u = Math.random();
-    while (!v) v = Math.random();
+    while (!u) u = random();
+    while (!v) v = random();
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v);
   }
 
@@ -126,27 +166,21 @@
   }
 
   /* ---------------- target + events (jump = stats origin) ---------------- */
-  var lastJump = 0, jumpT = -1, pointerT = -10;
+  var lastJump = 0, pointerT = -10;
+  var stats = ProofStats.create(S, 4 * D2R);
   function markJump(t) {
-    jumpT = t;
-    S.forEach(function (s) { s.inBand = -1; s.settle = null; });
+    stats.mark(t, target);
   }
   function autoTarget(t) {
     if (t - pointerT < 3.5) { lastJump = t; return; } // interaction cooldown keeps deferring
     if (t - lastJump > 6.0) {
       lastJump = t;
-      target = wrap(target + (Math.random() < 0.5 ? -1 : 1) * (0.9 + Math.random() * 1.3));
+      target = wrap(target + (random() < 0.5 ? -1 : 1) * (0.9 + random() * 1.3));
       markJump(t);
     }
   }
   function settleTrack(t) {
-    S.forEach(function (s) {
-      if (jumpT < 0 || s.settle !== null) return;
-      if (Math.abs(wrap(target - s.th)) < 2 * D2R) {
-        if (s.inBand < 0) s.inBand = t;
-        else if (t - s.inBand > 0.3) s.settle = s.inBand - jumpT;
-      } else s.inBand = -1;
-    });
+    stats.settle(t, target, 2 * D2R, 0.3);
   }
 
   /* ---------------- layout: rings above, error strips below ---------------- */
@@ -270,9 +304,15 @@
     var cx = (x < Wc / 2) ? CX[0] : CX[1];
     target = wrap(-Math.atan2(y - CY, x - cx));
     pointerT = simT;
+    stats.targetChanged(simT, target);
   }
   function disturb() {
-    dist = (Math.random() < 0.5 ? -1 : 1) * 30;
+    dist = (random() < 0.5 ? -1 : 1) * 30;
+    markJump(simT);
+  }
+  function newTarget() {
+    target = wrap(target + (random() < 0.5 ? -1 : 1) * (0.9 + random() * 1.3));
+    pointerT = simT;
     markJump(simT);
   }
   var FINE = matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -285,12 +325,11 @@
     // hijack the page), and a dedicated button injects the disturbance —
     // aim and disturb never collide on one gesture
     cv.addEventListener('click', aimAt);
-    var db = document.getElementById('proof-disturb');
-    if (db) {
-      db.hidden = false;
-      db.addEventListener('click', disturb);
-    }
   }
+  var tb = document.getElementById('proof-target');
+  var db = document.getElementById('proof-disturb');
+  if (tb) tb.addEventListener('click', newTarget);
+  if (db) db.addEventListener('click', disturb);
 
   /* ---------------- main loop ---------------- */
   // exact-match dev flags — substring matching would misfire on future
@@ -335,15 +374,25 @@
   });
 
   var btn = document.getElementById('proof-play');
-  if (btn && prefersReduced && !still) {
-    btn.hidden = false;
+  function syncButton() {
+    if (!btn) return;
+    btn.textContent = running ? (btn.getAttribute('data-pause') || 'Pause')
+      : (btn.getAttribute('data-play') || 'Play');
+    btn.setAttribute('aria-pressed', running ? 'true' : 'false');
+  }
+  if (btn && !still) {
+    syncButton();
     btn.addEventListener('click', function () {
       running = !running;
-      btn.textContent = running ? (btn.getAttribute('data-pause') || 'Pause')
-        : (btn.getAttribute('data-play') || 'Play');
+      syncButton();
       if (running) start(); else stop();
     });
   }
+  document.addEventListener('linku-motion-toggle', function (e) {
+    running = !!(e.detail && e.detail.running);
+    syncButton();
+    if (running) start(); else stop();
+  });
 
   var rT = 0;
   addEventListener('resize', function () {
@@ -358,10 +407,11 @@
 
   // introspection handle (verification tooling; no behavior)
   window.__proof = {
-    get simT() { return simT; }, get jumpT() { return jumpT; },
+    get simT() { return simT; }, get jumpT() { return stats.jumpT; },
+    get jumpTarget() { return stats.jumpTarget; }, get target() { return target; },
     get lastJump() { return lastJump; }, get pointerT() { return pointerT; },
     get running() { return running && !!rafId; },
-    get settles() { return [S[0].settle, S[1].settle]; },
+    get settles() { return [S[0].settle, S[1].settle]; }, newTarget: newTarget,
   };
 
   /* warm-up; still/reduced freeze at the most telling moment: right side

@@ -49,7 +49,7 @@
        If you add/change copy, update the &text= string below; missing glyphs
        quietly fall back to the system CJK font (no broken layout). -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&text=ホーム。プロジェクト。概要。お問い合わせ。技術。課題に、ちょうどよい知能を。LINKUは、AIと制御を小さな機械に統合します——現場のために設計し、その場で動作し、時とともに進化します。専用設計。あらゆるシステムを、単一の課題のために設計します。センサーからモデルまで現場に合わせて調整し、実際のニーズと制約に寄り添い、変化に応じて調整を続けます。その場で動作。演算と判断は機器の上でその場で完結します。クラウドへの往復も、通信の待ち時間もありません。応答は即時で、オフラインでも安定して動作し、データは手元に留まります——即時性とセキュリティが求められる現場での要となる価値です。設計による価値。性能は、ハードウェアの仕様だけで決まるものではありません。ハードウェアとソフトウェアの協調設計により、ソフトウェアがハードウェアの力を引き出し、適切な投資から仕様を超える性能を生み出します。私たちが届けるのは、本質的な価値です。使うほど賢く。配備後も、システムは現実の現場から学び続け、判断は日々精緻になり、環境への適合も深まります。動かすほどに、価値は高まります。つくろう。より賢くしたい現場の課題、あるいは協業のご相談があれば、お気軽にご連絡ください。人工知能 × 物理世界。同ふ果左右っミレョ・目標追外乱受般法（固ゲ）公開ベ正装こ「等回全体」意味速誤差構満カ移＝　ッ両側下細線推平良限エコダ周期唯違：ゴ向パメ証グボ加&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&text=ホーム。プロジェクト。概要。お問い合わせ。技術。課題に、ちょうどよい知能を。LINKUは、AIと制御を小さな機械に統合します——現場のために設計し、その場で動作し、時とともに進化します。専用設計。あらゆるシステムを、単一の課題のために設計します。センサーからモデルまで現場に合わせて調整し、実際のニーズと制約に寄り添い、変化に応じて調整を続けます。その場で動作。演算と判断は機器の上でその場で完結します。クラウドへの往復も、通信の待ち時間もありません。応答は即時で、オフラインでも安定して動作し、データは手元に留まります——即時性とセキュリティが求められる現場での要となる価値です。設計による価値。性能は、ハードウェアの仕様だけで決まるものではありません。ハードウェアとソフトウェアの協調設計により、ソフトウェアがハードウェアの力を引き出し、適切な投資から仕様を超える性能を生み出します。私たちが届けるのは、本質的な価値です。使うほど賢く。配備後も、システムは現実の現場から学び続け、判断は日々精緻になり、環境への適合も深まります。動かすほどに、価値は高まります。つくろう。より賢くしたい現場の課題、あるいは協業のご相談があれば、お気軽にご連絡ください。人工知能 × 物理世界。同ふ果左右っミレョ・目標追外乱受般法（固ゲ）公開ベ正装こ「等回全体」意味速誤差構満カ移＝　ッ両側下細線推平良限エコダ周期唯違：ゴ向パメ証グボ加新停止本文へ移動図示測雑音系列共有尊重画面自&display=swap"
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
@@ -99,11 +99,12 @@
 </head>
 
 <body>
+  <a class="skip-link" href="#top">本文へ移動</a>
   <canvas id="particles" aria-hidden="true" data-l-play="背景アニメーションを再生" data-l-pause="背景アニメーションを停止"></canvas>
   <div class="cursor-ring" aria-hidden="true"></div>
   <div class="cursor-dot" aria-hidden="true"></div>
 
-  <nav>
+  <nav aria-label="メインナビゲーション">
     <a href="/ja/" class="brand">LINKU</a>
     <div class="nav-right">
       <ul class="nav-links">
@@ -120,7 +121,7 @@
     </div>
   </nav>
 
-  <div class="wrap" id="top">
+  <main class="wrap" id="top" tabindex="-1">
 
     <header class="tech-hero section-pad" data-screen-label="Technology">
       <div class="label reveal">技術</div>
@@ -153,6 +154,7 @@
       <div class="label reveal">実証</div>
       <h2 class="proof-title reveal">同じハードウェア、ふたつの結果。</h2>
       <p class="proof-sub reveal">左右はまったく同じシミュレーション・ハードウェアです。同じ目標を追い、同じ外乱を受けます。左は一般的な手法（固定ゲイン PID）、右は公開されているベストプラクティスを同じ安価なハードウェアへ正しく実装したもの——これが「同等のハードウェアで一般的な手法を上回る全体性能」の意味です。整定が速いほどタクトは上がり、誤差が小さいほど、より安価な機構とセンサーで仕様を満たせます。</p>
+      <p class="proof-note reveal">シミュレーションによる図示であり、実測データではありません &middot; 両側は同一の目標・外乱・雑音系列を共有 &middot; prefers-reduced-motion を尊重し、画面外では自動停止</p>
       <p class="proof-same reveal" aria-hidden="true">
         <span>同じモーターモデル</span><span class="sep">&middot;</span>
         <span>同じトルク上限</span><span class="sep">&middot;</span>
@@ -169,8 +171,11 @@
       </div>
       <p class="proof-hint">カーソル移動＝目標の移動　&middot;　クリック＝両側へ同時に外乱　&middot;　下の細い線＝誤差の時間推移（平らなほど良い）</p>
       <p class="proof-hint-touch">リングをタップ＝目標を設定　&middot;　「外乱」ボタン＝両側へ同時に外乱　&middot;　下の細い線＝誤差の時間推移（平らなほど良い）</p>
-      <button id="proof-play" class="proof-play" hidden type="button" data-play="アニメーション再生" data-pause="一時停止">アニメーション再生</button>
-      <button id="proof-disturb" class="proof-disturb" hidden type="button">外乱を加える</button>
+      <div class="proof-controls" aria-label="シミュレーション操作">
+        <button id="proof-target" class="proof-control" type="button">新しい目標</button>
+        <button id="proof-disturb" class="proof-control" type="button">外乱を加える</button>
+        <button id="proof-play" class="proof-control" type="button" data-play="アニメーション再生" data-pause="一時停止">一時停止</button>
+      </div>
       <details class="proof-details">
         <summary class="proof-summary">エンジニア向け：モデルとパラメータ</summary>
         <div class="proof-spec">
@@ -183,7 +188,6 @@
           <b>声明</b>&#8195;右側はすべて公開された教科書級の技術です。差は秘密ではなく、正しい実装と調整から生まれます——それが協調設計の意味です
         </div>
       </details>
-      <p class="proof-note">シミュレーションによる図示であり、実測データではありません &middot; 両側は同一の目標・外乱・雑音系列を共有 &middot; prefers-reduced-motion を尊重し、画面外では自動停止</p>
     </section>
 
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
@@ -199,7 +203,7 @@
       </footer>
     </section>
 
-  </div>
+  </main>
 
   <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>

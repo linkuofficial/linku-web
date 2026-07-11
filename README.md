@@ -3,24 +3,36 @@
 Linku Tech 官方網站 — linku.tech。靜態多語站，無 build，直接部署至 Vercel。
 
 ## 結構
-- `index.html` — 英文（根 `/`，預設語言）
-- `zh/index.html` — 繁體中文（`/zh/`）
-- `ja/index.html` — 日本語（`/ja/`）
-- `assets/styles.css`、`assets/main.js` — 三語共用的樣式與腳本（CSS/JS 已外置，改一處三頁生效）
+- `index.html`、`about/index.html`、`technology/index.html` — 英文三頁（根語系）
+- `zh/`、`ja/` — 繁中與日文各三頁，共九頁
+- `assets/styles.css` — 九頁共用樣式、無障礙與漸進增強規則
+- `assets/main.js` — 導覽、reveal、游標與低成本微互動
+- `assets/render.js` — 首頁 WebGL 機芯／內頁星場；reduced-motion 先顯示零 WebGL poster
+- `assets/proof.js` — technology 頁的雙控制器模擬與鍵盤控制
 - `sitemap.xml`、`robots.txt` — SEO
+- `scripts/check.mjs`、`scripts/proof.test.cjs` — 機械檢查與 proof 決定性測試
 
-三頁以 `hreflang` 互指、各自 self-canonical；nav 右側語言切換器為純連結（`/`、`/zh/`、`/ja/`），無需 JS。
+每組三語頁以 `hreflang` 互指並各自 self-canonical；語言切換器為純連結，不依賴 JavaScript。正文預設可見，JavaScript 僅在成功啟動後套用 reveal 與自訂游標。
 
 ## 本機預覽
 資源用絕對路徑 `/assets/...`，需透過 HTTP server 預覽（不能直接以 `file://` 開啟）：
 
 ```bash
-python -m http.server 8080
-# 瀏覽 http://localhost:8080/ 、 /zh/ 、 /ja/
+python D:\LINKU\nocache_server.py
+# 瀏覽 http://localhost:8080/、/about/、/technology/ 及 zh/、ja/ 對應頁
 ```
 
+## 驗證
+
+```bash
+node scripts/proof.test.cjs
+node scripts/check.mjs
+```
+
+完成前另需透過本機 HTTP 實看三語 × 三頁及 ≤520px 窄屏。`check.mjs` 會檢查 canonical、hreflang、sitemap、CJK `&text=`、Brotli 資源預算、本地引用與外部 origin 白名單。
+
 ## 編輯多語文案
-各語言一個 HTML 檔，直接改對應檔的可見文字即可。
+直接修改對應語言與路徑的 HTML 可見文字。
 
 若 `zh/` 或 `ja/` 新增中文／日文字元，需同步更新該頁 `<head>` 內 Noto Sans 字型連結的 `&text=` 參數（只載入頁面實際用到的字以縮小體積；缺字會自動 fallback 至系統 CJK 字型，不會破版）。
 

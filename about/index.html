@@ -96,11 +96,12 @@
 </head>
 
 <body>
+  <a class="skip-link" href="#top">Skip to content</a>
   <canvas id="particles" aria-hidden="true" data-l-play="Play background animation" data-l-pause="Pause background animation"></canvas>
   <div class="cursor-ring" aria-hidden="true"></div>
   <div class="cursor-dot" aria-hidden="true"></div>
 
-  <nav>
+  <nav aria-label="Primary">
     <a href="/" class="brand">LINKU</a>
     <div class="nav-right">
       <ul class="nav-links">
@@ -117,7 +118,7 @@
     </div>
   </nav>
 
-  <div class="wrap" id="top">
+  <main class="wrap" id="top" tabindex="-1">
 
     <header class="about-head section-pad" data-screen-label="About">
       <div class="label reveal">About</div>
@@ -157,7 +158,7 @@
       </footer>
     </section>
 
-  </div>
+  </main>
 
   <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>

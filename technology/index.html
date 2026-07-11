@@ -96,11 +96,12 @@
 </head>
 
 <body>
+  <a class="skip-link" href="#top">Skip to content</a>
   <canvas id="particles" aria-hidden="true" data-l-play="Play background animation" data-l-pause="Pause background animation"></canvas>
   <div class="cursor-ring" aria-hidden="true"></div>
   <div class="cursor-dot" aria-hidden="true"></div>
 
-  <nav>
+  <nav aria-label="Primary">
     <a href="/" class="brand">LINKU</a>
     <div class="nav-right">
       <ul class="nav-links">
@@ -117,7 +118,7 @@
     </div>
   </nav>
 
-  <div class="wrap" id="top">
+  <main class="wrap" id="top" tabindex="-1">
 
     <header class="tech-hero section-pad" data-screen-label="Technology">
       <div class="label reveal">Technology</div>
@@ -150,6 +151,7 @@
       <div class="label reveal">Proof</div>
       <h2 class="proof-title reveal">Same hardware, two outcomes.</h2>
       <p class="proof-sub reveal">Left and right are two identical simulated machines — same target, same disturbance. The left runs the common approach: a fixed-gain PID. The right deploys public best practice, correctly, on the same inexpensive hardware. That is what we mean by letting the whole system outperform conventional approaches on comparable hardware. Faster settling means a faster line; smaller error means cheaper mechanics and sensing can hit spec.</p>
+      <p class="proof-note reveal">Simulated illustration, not measured data &middot; Both sides share one target, one disturbance, one noise sequence &middot; Honors prefers-reduced-motion; pauses off-screen</p>
       <p class="proof-same reveal" aria-hidden="true">
         <span>Same motor model</span><span class="sep">&middot;</span>
         <span>Same torque limit</span><span class="sep">&middot;</span>
@@ -166,8 +168,11 @@
       </div>
       <p class="proof-hint">Move the cursor to move the target &middot; Click to hit both sides with the same disturbance &middot; The thin line below traces error over time — flatter is better</p>
       <p class="proof-hint-touch">Tap the rings to set the target &middot; Tap Disturb to hit both sides at once &middot; The thin line below traces error over time — flatter is better</p>
-      <button id="proof-play" class="proof-play" hidden type="button" data-play="Play animation" data-pause="Pause">Play animation</button>
-      <button id="proof-disturb" class="proof-disturb" hidden type="button">Disturb</button>
+      <div class="proof-controls" aria-label="Simulation controls">
+        <button id="proof-target" class="proof-control" type="button">New target</button>
+        <button id="proof-disturb" class="proof-control" type="button">Disturb</button>
+        <button id="proof-play" class="proof-control" type="button" data-play="Play animation" data-pause="Pause">Pause</button>
+      </div>
       <details class="proof-details">
         <summary class="proof-summary">For engineers: model &amp; parameters</summary>
         <div class="proof-spec">
@@ -180,7 +185,6 @@
           <b>Statement</b>&#8195;everything on the right is public, textbook-grade technique; the gap comes from correct deployment and tuning, not secrets &#8212; that is software&#8211;hardware co-design
         </div>
       </details>
-      <p class="proof-note">Simulated illustration, not measured data &middot; Both sides share one target, one disturbance, one noise sequence &middot; Honors prefers-reduced-motion; pauses off-screen</p>
     </section>
 
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
@@ -196,7 +200,7 @@
       </footer>
     </section>
 
-  </div>
+  </main>
 
   <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>

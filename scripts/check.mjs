@@ -25,13 +25,15 @@
  *       HTML 實體如 &copy;、&#8594; 先解碼），其中每個 CJK 字元都必須
  *       包含在該頁 &text= 參數內；缺字即 FAIL 並列出缺哪些字、在哪個選擇器
  *  4. 資源預算與引用完整性（2026-07-08 rendering-upgrade P0 新增）：
- *     - assets/*.js / *.css 未壓縮位元組數不得超過預算表（防效能悄悄回歸）；
+ *     - assets/*.js / *.css 的 Brotli 壓縮位元組數不得超過預算表（貼近實際傳輸成本）；
  *       預算表中標記 optional 的檔案「不存在」不算 FAIL（尚未實作的階段），
  *       但只要存在就必須守預算
  *     - 頁面上引用的本地 /assets/ 資源（script src、link href）必須實際存在
  *  5. 外部 origin 白名單（2026-07-08 rendering-upgrade P0 新增）：
  *     - 所有頁面的 <script src> / <link href> 外部 origin 僅允許
  *       fonts.googleapis.com、fonts.gstatic.com；其他一律 FAIL（守住零依賴）
+ *  6. 漸進增強與語義：每頁恰有一個 main、skip link、不跳級的標題；
+ *     reveal 與自訂游標只在 JS／游標確實啟動後才隱藏原生內容／游標
  *
  * 檢查範圍與已知限制（改動站台結構前先讀）：
  *  - 「CJK 字元」定義：漢字（U+4E00–9FFF、擴展A U+3400–4DBF、相容區 U+F900–FAFF）、
@@ -50,6 +52,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { brotliCompressSync, constants as zlibConstants } from 'node:zlib';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -506,14 +509,15 @@ if (!fs.existsSync(stylesPath)) {
 console.log('');
 console.log('=== 4. 資源預算與本地引用完整性 ===');
 
-// 預算為未壓縮位元組數；optional=true 僅供「尚未實作的未來檔案」使用——
+// 預算為 Brotli quality 11 位元組數；比未壓縮大小更貼近實際傳輸成本，
+// 並保留約 20% 維護空間。optional=true 僅供「尚未實作的未來檔案」使用——
 // 已上線資產一律 optional:false（檔案消失＝FAIL，防 rename／誤刪讓功能
 // 靜默蒸發而 CI 全綠）。調整門檻請同步更新任務簡報。
 const ASSET_BUDGETS = [
-  { rel: 'assets/render.js', maxBytes: 52 * 1024, optional: false },
-  { rel: 'assets/proof.js',  maxBytes: 16 * 1024, optional: false },
-  { rel: 'assets/main.js',   maxBytes: 16 * 1024, optional: false },
-  { rel: 'assets/styles.css', maxBytes: 44 * 1024, optional: false },
+  { rel: 'assets/render.js', maxBytes: 18 * 1024, optional: false },
+  { rel: 'assets/proof.js',  maxBytes: 7 * 1024, optional: false },
+  { rel: 'assets/main.js',   maxBytes: 4 * 1024, optional: false },
+  { rel: 'assets/styles.css', maxBytes: 10 * 1024, optional: false },
 ];
 
 // script src 抽取共用 helper：走 attrsOfTag（與 <link> 解析同一條路），
@@ -533,11 +537,13 @@ for (const b of ASSET_BUDGETS) {
     else fail(b.rel + ' — 檔案不存在（必要資產）');
     continue;
   }
-  const size = fs.statSync(file).size;
+  const size = brotliCompressSync(fs.readFileSync(file), {
+    params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 11 },
+  }).length;
   if (size <= b.maxBytes) {
-    pass(b.rel + ' — ' + size + ' bytes ≤ 預算 ' + b.maxBytes + ' bytes');
+    pass(b.rel + ' — Brotli ' + size + ' bytes ≤ 預算 ' + b.maxBytes + ' bytes');
   } else {
-    fail(b.rel + ' — ' + size + ' bytes 超出預算 ' + b.maxBytes + ' bytes（效能護欄；若為刻意擴充請連同任務簡報一起調整）');
+    fail(b.rel + ' — Brotli ' + size + ' bytes 超出預算 ' + b.maxBytes + ' bytes（效能護欄；若為刻意擴充請連同任務簡報一起調整）');
   }
 }
 
@@ -597,6 +603,34 @@ const FETCHING_RELS = new Set([
   } else {
     for (const o of offenders) fail(o);
   }
+}
+
+// ---------- 6. 漸進增強與語義 ----------
+console.log('');
+console.log('=== 6. 漸進增強與語義結構 ===');
+{
+  const issues = [];
+  for (const p of pages) {
+    const mainCount = (p.html.match(/<main\b/gi) || []).length;
+    if (mainCount !== 1) issues.push(p.rel + ' — <main> 數量為 ' + mainCount + '（預期 1）');
+    if (!/<a\b[^>]*class=["'][^"']*\bskip-link\b[^"']*["'][^>]*href=["']#top["']/i.test(p.html)) {
+      issues.push(p.rel + ' — 缺少指向 #top 的 skip link');
+    }
+    const levels = [...p.html.matchAll(/<h([1-6])\b/gi)].map((m) => Number(m[1]));
+    if (levels[0] !== 1) issues.push(p.rel + ' — 第一個標題不是 h1');
+    for (let i = 1; i < levels.length; i++) {
+      if (levels[i] > levels[i - 1] + 1) issues.push(p.rel + ' — 標題層級由 h' + levels[i - 1] + ' 跳至 h' + levels[i]);
+    }
+  }
+  const css = readText(stylesPath);
+  const mainJs = readText(path.join(ROOT, 'assets', 'main.js'));
+  if (!/\.js\s+\.reveal\s*\{/.test(css)) issues.push('styles.css — reveal 未受 .js enhancement gate 保護');
+  if (!/\.cursor-ready\s+body\s*\{/.test(css)) issues.push('styles.css — cursor:none 未受 .cursor-ready gate 保護');
+  if (!/document\.documentElement\.classList\.add\(['"]js['"]\)/.test(mainJs.slice(0, 400))) {
+    issues.push('main.js — 啟動區未設定 html.js enhancement gate');
+  }
+  if (issues.length === 0) pass('九頁 main／skip link／標題層級與 no-JS enhancement gates 完整');
+  else for (const issue of issues) fail(issue);
 }
 
 // ---------- 總結 ----------

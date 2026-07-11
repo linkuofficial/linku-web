@@ -48,7 +48,7 @@
        If you add/change copy, update the &text= string below; missing glyphs
        quietly fall back to the system CJK font (no broken layout). -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&text=首頁。專案。關於。聯絡。技術。為真實任務，打造恰如其分的智慧。LINKU 將 AI 與控制整合於小巧的機器——為場景而生，於現場即時運作，並隨時間持續精進。量身打造。每一套系統都為單一任務量身打造，自感測到模型皆依場景調校，貼合實際的需求與限制，並隨需求演進而持續調整。就地運作。運算與決策皆於裝置端即時完成，無需上傳雲端或等待網路往返；即便連線不穩或離線，仍穩定可靠，資料亦始終留存本地——對講求即時反應與資料安全的場域，這是關鍵價值。高性價比。性能，未必由硬體規格決定。透過軟硬協同設計、以軟體釋放硬體的潛力，讓合理的投入發揮出超乎規格的表現。我們交付的，是整體效益。越用越強。系統在部署後，持續從真實場景中學習，判斷日益精準，亦愈加貼合所處環境。運行愈久，價值愈高。一起打造吧。想讓某項現場任務更聰明，或探索合作？歡迎來信。人工智慧 × 物理世界。聯繫我們。樣兩種結果左右相擬追個目標吃記干擾邊跑常見法（固增）把公開最佳正確顆宜說：般方快＝節拍誤差構達移動游　點擊施下細軌跡平好馬矩編碼迴頻率唯給程師參數證圓按「」&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&text=首頁。專案。關於。聯絡。技術。為真實任務，打造恰如其分的智慧。LINKU 將 AI 與控制整合於小巧的機器——為場景而生，於現場即時運作，並隨時間持續精進。量身打造。每一套系統都為單一任務量身打造，自感測到模型皆依場景調校，貼合實際的需求與限制，並隨需求演進而持續調整。就地運作。運算與決策皆於裝置端即時完成，無需上傳雲端或等待網路往返；即便連線不穩或離線，仍穩定可靠，資料亦始終留存本地——對講求即時反應與資料安全的場域，這是關鍵價值。高性價比。性能，未必由硬體規格決定。透過軟硬協同設計、以軟體釋放硬體的潛力，讓合理的投入發揮出超乎規格的表現。我們交付的，是整體效益。越用越強。系統在部署後，持續從真實場景中學習，判斷日益精準，亦愈加貼合所處環境。運行愈久，價值愈高。一起打造吧。想讓某項現場任務更聰明，或探索合作？歡迎來信。人工智慧 × 物理世界。聯繫我們。樣兩種結果左右相擬追個目標吃記干擾邊跑常見法（固增）把公開最佳正確顆宜說：般方快＝節拍誤差構達移動游　點擊施下細軌跡平好馬矩編碼迴頻率唯給程師參數證圓按「」新暫停畫跳至主要內容示意非側共雜訊序列尊重屏&display=swap"
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
@@ -98,11 +98,12 @@
 </head>
 
 <body>
+  <a class="skip-link" href="#top">跳至主要內容</a>
   <canvas id="particles" aria-hidden="true" data-l-play="播放背景動畫" data-l-pause="暫停背景動畫"></canvas>
   <div class="cursor-ring" aria-hidden="true"></div>
   <div class="cursor-dot" aria-hidden="true"></div>
 
-  <nav>
+  <nav aria-label="主要導覽">
     <a href="/zh/" class="brand">LINKU</a>
     <div class="nav-right">
       <ul class="nav-links">
@@ -119,7 +120,7 @@
     </div>
   </nav>
 
-  <div class="wrap" id="top">
+  <main class="wrap" id="top" tabindex="-1">
 
     <header class="tech-hero section-pad" data-screen-label="Technology">
       <div class="label reveal">技術</div>
@@ -152,6 +153,7 @@
       <div class="label reveal">實證</div>
       <h2 class="proof-title reveal">同樣的硬體，兩種結果。</h2>
       <p class="proof-sub reveal">左右是兩套完全相同的模擬硬體，追同一個目標、吃同一記干擾。左邊跑常見作法（固定增益 PID），右邊把公開的最佳實務正確地部署進同一顆便宜硬體——這就是我們說的：讓整體系統超越同等硬體的一般方案。更快的安定＝更高的節拍；更小的誤差＝更便宜的機構與感測就能達標。</p>
+      <p class="proof-note reveal">模擬示意，非量測資料 &middot; 兩側共用同一目標、同一干擾與同一雜訊序列 &middot; 尊重 prefers-reduced-motion，離屏自動暫停</p>
       <p class="proof-same reveal" aria-hidden="true">
         <span>相同馬達模型</span><span class="sep">&middot;</span>
         <span>相同力矩上限</span><span class="sep">&middot;</span>
@@ -168,8 +170,11 @@
       </div>
       <p class="proof-hint">移動游標＝移動目標　&middot;　點擊＝同時對兩邊施加干擾　&middot;　下方細線＝誤差的時間軌跡（越平越好）</p>
       <p class="proof-hint-touch">點圓環＝設定目標　&middot;　按「施加干擾」＝同時干擾兩邊　&middot;　下方細線＝誤差軌跡（越平越好）</p>
-      <button id="proof-play" class="proof-play" hidden type="button" data-play="播放動畫" data-pause="暫停動畫">播放動畫</button>
-      <button id="proof-disturb" class="proof-disturb" hidden type="button">施加干擾</button>
+      <div class="proof-controls" aria-label="模擬控制">
+        <button id="proof-target" class="proof-control" type="button">新目標</button>
+        <button id="proof-disturb" class="proof-control" type="button">施加干擾</button>
+        <button id="proof-play" class="proof-control" type="button" data-play="播放動畫" data-pause="暫停動畫">暫停動畫</button>
+      </div>
       <details class="proof-details">
         <summary class="proof-summary">給工程師：模型與參數</summary>
         <div class="proof-spec">
@@ -182,7 +187,6 @@
           <b>聲明</b>&#8195;右側全部為公開教科書級技術；差距不靠祕密，靠正確的部署與整定——這正是軟硬協同的意義
         </div>
       </details>
-      <p class="proof-note">模擬示意，非量測資料 &middot; 兩側共用同一目標、同一干擾與同一雜訊序列 &middot; 尊重 prefers-reduced-motion，離屏自動暫停</p>
     </section>
 
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
@@ -198,7 +202,7 @@
       </footer>
     </section>
 
-  </div>
+  </main>
 
   <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>
