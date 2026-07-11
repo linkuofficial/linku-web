@@ -10,7 +10,8 @@ Linku Tech 官方網站 — linku.tech。靜態多語站，無 build，直接部
 - `assets/render.js` — 首頁 WebGL 機芯／內頁星場；reduced-motion 先顯示零 WebGL poster
 - `assets/proof.js` — technology 頁的雙控制器模擬與鍵盤控制
 - `sitemap.xml`、`robots.txt` — SEO
-- `scripts/check.mjs`、`scripts/proof.test.cjs` — 機械檢查與 proof 決定性測試
+- `scripts/check.mjs`、`scripts/proof*.test.cjs` — 機械檢查與 proof 決定性測試
+- `scripts/sync-font-text.mjs` — 依三語頁面可見正文同步 CJK Google Fonts 子集
 
 每組三語頁以 `hreflang` 互指並各自 self-canonical；語言切換器為純連結，不依賴 JavaScript。正文預設可見，JavaScript 僅在成功啟動後套用 reveal 與自訂游標。
 
@@ -26,6 +27,7 @@ python D:\LINKU\nocache_server.py
 
 ```bash
 node scripts/proof.test.cjs
+node scripts/proof-dynamics.test.cjs
 node scripts/check.mjs
 ```
 
@@ -34,6 +36,6 @@ node scripts/check.mjs
 ## 編輯多語文案
 直接修改對應語言與路徑的 HTML 可見文字。
 
-若 `zh/` 或 `ja/` 新增中文／日文字元，需同步更新該頁 `<head>` 內 Noto Sans 字型連結的 `&text=` 參數（只載入頁面實際用到的字以縮小體積；缺字會自動 fallback 至系統 CJK 字型，不會破版）。
+若 `zh/` 或 `ja/` 修改可見文字，執行 `node scripts/sync-font-text.mjs`；它會依各頁 `<body>` 可見文字更新 Noto Sans 的 `&text=` 參數。`check.mjs` 會同時攔截缺字與已不在正文中的過期 CJK 字元。
 
 > 日文文案目前為機械翻譯為底，建議上線前由母語者校稿（見 `ja/index.html` 頂部註解）。

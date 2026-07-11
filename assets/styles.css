@@ -992,8 +992,30 @@ html[lang="en"] .pillar-title {
 }
 
 @media (max-width: 720px) {
+  .proof {
+    padding-top: clamp(72px, 10vh, 110px);
+    padding-bottom: clamp(44px, 7vh, 72px);
+  }
+
+  .proof-title {
+    margin-top: 24px;
+  }
+
+  .proof-sub {
+    margin-top: 16px;
+    line-height: 1.75;
+  }
+
+  .proof-same {
+    margin-top: 18px;
+  }
+
+  .proof-stage {
+    margin-top: 22px;
+  }
+
   #proof-canvas {
-    height: min(52vh, 420px);
+    height: min(40vh, 330px);
   }
 
   .proof-cap {
@@ -1703,5 +1725,18 @@ html[lang="ja"] .more-link {
   .lang-switch {
     grid-column: 2;
     grid-row: 1;
+  }
+
+  .proof-hint,
+  .proof-hint-touch {
+    margin-top: 16px;
+  }
+
+  .proof-controls {
+    margin-top: 14px;
+  }
+
+  .proof-details {
+    margin-top: 20px;
   }
 }

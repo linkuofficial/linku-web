@@ -494,13 +494,20 @@ if (!fs.existsSync(stylesPath)) {
     }
 
     const missing = [...required.entries()].filter(([ch]) => !subsetChars.has(ch));
-    if (missing.length === 0) {
-      pass(p.rel + ' — 頁面 CJK 字型元素共用 ' + required.size + ' 個相異 CJK 字元，全數包含於 &text=');
-    } else {
+    let body = null;
+    walk(tree, (node) => { if (!body && node.tag === 'body') body = node; });
+    const visibleBodyCJK = new Set(body ? [...textOf(body)].filter(isCJK) : []);
+    const stale = [...subsetChars].filter((ch) => isCJK(ch) && !visibleBodyCJK.has(ch));
+    if (missing.length === 0 && stale.length === 0) {
+      pass(p.rel + ' — CJK 字型子集涵蓋必要字元，且無過期 CJK 字元');
+    } else if (missing.length > 0) {
       const detail = missing
         .map(([ch, descs]) => '「' + ch + '」(U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0') + '，出現於 ' + [...descs].join('、') + ')')
         .join('；');
       fail(p.rel + ' — &text= 缺 ' + missing.length + ' 字：' + detail);
+    }
+    if (stale.length > 0) {
+      fail(p.rel + ' — &text= 含 ' + stale.length + ' 個頁面正文已不存在的 CJK 字元：' + stale.join(''));
     }
   }
 }
@@ -630,6 +637,62 @@ console.log('=== 6. 漸進增強與語義結構 ===');
     issues.push('main.js — 啟動區未設定 html.js enhancement gate');
   }
   if (issues.length === 0) pass('九頁 main／skip link／標題層級與 no-JS enhancement gates 完整');
+  else for (const issue of issues) fail(issue);
+}
+
+// ---------- 總結 ----------
+console.log('');
+console.log('=== 7. 對外可信度與結構化資料一致性 ===');
+{
+  const issues = [];
+  const descriptions = new Map();
+  const banned = [
+    /improving over time/i, /keeps learning/i, /data remains on-site/i,
+    /performance beyond its spec/i, /越用越強/, /資料亦始終留存本地/,
+    /使うほど賢く/, /データは手元に留まります/,
+  ];
+  for (const p of pages) {
+    for (const pattern of banned) {
+      if (pattern.test(p.html)) issues.push(p.rel + ' — 仍含未加條件的對外承諾：' + pattern);
+    }
+    const ldScripts = [...p.html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    if (ldScripts.length !== 1) {
+      issues.push(p.rel + ' — Organization JSON-LD 數量為 ' + ldScripts.length + '（預期 1）');
+      continue;
+    }
+    try {
+      const data = JSON.parse(ldScripts[0][1]);
+      const nodes = Array.isArray(data['@graph']) ? data['@graph'] : [data];
+      const org = nodes.find((node) => node && node['@type'] === 'Organization');
+      if (!org) throw new Error('缺少 Organization node');
+      if (org.foundingDate !== '2026') issues.push(p.rel + ' — JSON-LD foundingDate 應為 inception year 2026');
+      if (!Array.isArray(org.sameAs) || !org.sameAs.includes('https://github.com/linkuofficial')) {
+        issues.push(p.rel + ' — JSON-LD sameAs 缺少官方 GitHub');
+      }
+      const lang = p.expectedLang;
+      if (!descriptions.has(lang)) descriptions.set(lang, new Map());
+      const byDescription = descriptions.get(lang);
+      byDescription.set(org.description, [...(byDescription.get(org.description) || []), p.rel]);
+    } catch (error) {
+      issues.push(p.rel + ' — JSON-LD 無法解析：' + error.message);
+    }
+  }
+  for (const [lang, variants] of descriptions) {
+    if (variants.size !== 1) {
+      issues.push(lang + ' — 三頁 Organization description 不一致：'
+        + [...variants.values()].map((files) => files.join(', ')).join(' / '));
+    }
+  }
+  const inceptionRules = [
+    ['about/index.html', /<dt>Since<\/dt><dd>2026<\/dd>/],
+    ['zh/about/index.html', /<dt>起步於<\/dt><dd>2026<\/dd>/],
+    ['ja/about/index.html', /<dt>活動開始<\/dt><dd>2026<\/dd>/],
+  ];
+  for (const [rel, pattern] of inceptionRules) {
+    const page = pages.find((p) => p.rel === rel);
+    if (!page || !pattern.test(page.html)) issues.push(rel + ' — 對外起始年份用字不符 facts 決議');
+  }
+  if (issues.length === 0) pass('三語承諾用字、活動起始年份與 Organization JSON-LD 一致');
   else for (const issue of issues) fail(issue);
 }
 

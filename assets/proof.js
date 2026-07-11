@@ -34,7 +34,79 @@ var ProofStats = (function () {
   }
   return { wrap: wrap, create: create };
 })();
-if (typeof module !== 'undefined' && module.exports) module.exports = ProofStats;
+
+/* The controller/plant core is also pure: browser rendering and deterministic
+   Node regression tests step the exact same dynamics. */
+var ProofDynamics = (function () {
+  'use strict';
+  var TAU = Math.PI * 2, D2R = Math.PI / 180;
+  var J = 1.0, B = 0.15, TMAX = 6.0;
+  var QUANT = 1.5 * D2R, NOISE = 0.5 * D2R;
+  var LAT = 1, DT = 1 / 240, SUB = 4;
+  var A_MAX = 0.8 * TMAX / J, V_MAX = 6.0, E_LIN = 0.06;
+  var K_LIN = Math.sqrt(2 * A_MAX / E_LIN);
+  var PID_KP = 20, PID_KD = 5.8, PID_KI = 12, PID_WF = 20, PID_ND = 6;
+  function wrap(a) { return ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function makeSide(kind) {
+    return {
+      kind: kind, th: 0, w: 0, measBuf: [], est: 0, estW: 0,
+      I: 0, vF: 0, refTh: 0, refW: 0, dHat: 0, pHat: 0, tauPrev: 0,
+      trail: [], errHist: [], inBand: -1, settle: null,
+    };
+  }
+  function sense(side, n) {
+    var m = Math.round((side.th + n * NOISE) / QUANT) * QUANT;
+    side.measBuf.push(m);
+    if (side.measBuf.length > LAT + PID_ND + 2) side.measBuf.shift();
+    side.lagIdx = Math.max(0, side.measBuf.length - 1 - LAT);
+    return side.measBuf[side.lagIdx];
+  }
+  function stepSide(side, target, dt, n, distT) {
+    var mLag = sense(side, n), tq;
+    if (side.kind === 'naive') {
+      var buf = side.measBuf, i = side.lagIdx;
+      var iPrev = Math.max(0, i - PID_ND);
+      var vRaw = wrap(buf[i] - buf[iPrev]) / (dt * (i - iPrev || 1));
+      side.vF += (1 - Math.exp(-PID_WF * dt)) * (vRaw - side.vF);
+      var e = wrap(target - mLag);
+      var unsat = PID_KP * e + side.I - PID_KD * side.vF;
+      tq = clamp(unsat, -TMAX, TMAX);
+      if (unsat === tq || e * unsat < 0) side.I = clamp(side.I + PID_KI * e * dt, -0.9 * TMAX, 0.9 * TMAX);
+    } else {
+      var innov = wrap(mLag - side.est);
+      side.est = wrap(side.est + side.estW * dt + 0.28 * innov);
+      side.estW += 9.0 * innov;
+      side.pHat += (side.tauPrev - B * side.estW + side.dHat) * dt;
+      var pErr = J * side.estW - side.pHat;
+      side.pHat += 24 * pErr * dt;
+      side.dHat = clamp(side.dHat + 144 * pErr * dt, -TMAX, TMAX);
+      var eR = wrap(target - side.refTh), ae = Math.abs(eR);
+      var vProf = ae < E_LIN ? K_LIN * ae : Math.sqrt(2 * A_MAX * ae);
+      var vDes = (eR >= 0 ? 1 : -1) * Math.min(vProf, V_MAX);
+      var applied = clamp(vDes - side.refW, -A_MAX * dt, A_MAX * dt);
+      side.refW += applied;
+      side.refTh = wrap(side.refTh + side.refW * dt);
+      var predTh = wrap(side.est + side.estW * dt * (LAT + 1));
+      tq = J * (applied / dt) + B * side.refW
+        + 40.0 * wrap(side.refTh - predTh) + 11.0 * (side.refW - side.estW)
+        - side.dHat;
+    }
+    tq = clamp(tq, -TMAX, TMAX);
+    if (side.kind !== 'naive') side.tauPrev = tq;
+    side.w += ((tq - B * side.w + distT) / J) * dt;
+    side.th = wrap(side.th + side.w * dt);
+  }
+  return {
+    config: { DT: DT, SUB: SUB, D2R: D2R },
+    makeSide: makeSide,
+    stepSide: stepSide,
+  };
+})();
+if (typeof module !== 'undefined' && module.exports) {
+  ProofStats.dynamics = ProofDynamics;
+  module.exports = ProofStats;
+}
 
 /* ============================================================
    Proof — "Same hardware, two outcomes." (/technology/)
@@ -53,7 +125,7 @@ if (typeof module !== 'undefined' && module.exports) module.exports = ProofStats
   var ctx = cv.getContext('2d');
   if (!ctx) return;
 
-  var TAU = Math.PI * 2, D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  var TAU = Math.PI * 2, D2R = ProofDynamics.config.D2R, R2D = 180 / Math.PI;
   var wrap = ProofStats.wrap;
   var random = typeof window.__proofRandom === 'function' ? window.__proofRandom : Math.random;
 
@@ -65,19 +137,8 @@ if (typeof module !== 'undefined' && module.exports) module.exports = ProofStats
   var ORDER_HI = '#f7d9a8', LINE = 'rgba(232,230,224,.12)';
   var STEEL_D = 'rgba(129,148,171,', ORDER_D = 'rgba(232,180,120,';
 
-  /* ---------------- identical "hardware" ---------------- */
-  var J = 1.0, B = 0.15, TMAX = 6.0;
-  var QUANT = 1.5 * D2R, NOISE = 0.5 * D2R;
-  var LAT = 1;                              // 1-tick sensing latency @240Hz (both sides)
-  var DT = 1 / 240, SUB = 4;
-  var A_MAX = 0.8 * TMAX / J;               // trajectory accel cap — feedback headroom
-  var V_MAX = 6.0;
-  var E_LIN = 0.06;                         // PTOS linear terminal radius (≈3.4°)
-  var K_LIN = Math.sqrt(2 * A_MAX / E_LIN); // C0-continuous boundary match
-  // left-side competent PID (numeric sweep 2026-07-09: settles every jump,
-  // mean 2.7s vs right 1.1s = credible 2.5x; disturbance recovery 1.9x)
-  var PID_KP = 20, PID_KD = 5.8, PID_KI = 12; // ζ≈0.65 @ ωn≈4.5 rad/s
-  var PID_WF = 20, PID_ND = 6;                // dirty-derivative LPF (rad/s) / diff base (ticks)
+  /* ---------------- identical simulated plant ---------------- */
+  var DT = ProofDynamics.config.DT, SUB = ProofDynamics.config.SUB;
 
   function gauss() {
     var u = 0, v = 0;
@@ -86,81 +147,16 @@ if (typeof module !== 'undefined' && module.exports) module.exports = ProofStats
     return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * v);
   }
 
-  function makeSide(kind) {
-    return {
-      kind: kind, th: 0, w: 0, measBuf: [], est: 0, estW: 0,
-      I: 0, vF: 0, refTh: 0, refW: 0, dHat: 0, pHat: 0, tauPrev: 0,
-      trail: [], errHist: [], inBand: -1, settle: null,
-    };
-  }
+  var makeSide = ProofDynamics.makeSide;
   var S = [makeSide('naive'), makeSide('linku')];
   var target = 0;
-
-  function sense(side, n) {
-    var m = Math.round((side.th + n * NOISE) / QUANT) * QUANT;
-    side.measBuf.push(m);
-    if (side.measBuf.length > LAT + PID_ND + 2) side.measBuf.shift();
-    // one place owns the latency indexing — both controllers read this tick
-    side.lagIdx = Math.max(0, side.measBuf.length - 1 - LAT);
-    return side.measBuf[side.lagIdx];
-  }
-
-  function stepSide(side, dt, n, distT) {
-    var mLag = sense(side, n);
-    var tq;
-    if (side.kind === 'naive') {
-      /* the status quo, done competently: dirty-derivative velocity,
-         clamping anti-windup. Still raw steps — no trajectory, feedforward,
-         observer or latency compensation: the structural gap. */
-      var buf = side.measBuf;
-      var i = side.lagIdx;
-      var iPrev = Math.max(0, i - PID_ND);
-      var vRaw = wrap(buf[i] - buf[iPrev]) / (dt * (i - iPrev || 1));
-      side.vF += (1 - Math.exp(-PID_WF * dt)) * (vRaw - side.vF);
-      var e = wrap(target - mLag);
-      var unsat = PID_KP * e + side.I - PID_KD * side.vF;
-      tq = Math.max(-TMAX, Math.min(TMAX, unsat));
-      if (unsat === tq || e * unsat < 0) {
-        side.I = Math.max(-0.9 * TMAX, Math.min(0.9 * TMAX, side.I + PID_KI * e * dt));
-      }
-    } else {
-      /* public best practice, deployed correctly:
-         steady-state Kalman estimate + one-tick forward prediction →
-         near-time-optimal trajectory (PTOS) → model feedforward +
-         momentum disturbance observer + well-tuned feedback */
-      var innov = wrap(mLag - side.est);
-      side.est = wrap(side.est + side.estW * dt + 0.28 * innov);
-      side.estW = side.estW + 9.0 * innov;             // ω≈46 rad/s, ζ≈0.72
-      side.pHat += (side.tauPrev - B * side.estW + side.dHat) * dt;
-      var pErr = J * side.estW - side.pHat;
-      side.pHat += 24 * pErr * dt;                     // DOB ω≈12 rad/s, ζ≈1
-      side.dHat = Math.max(-TMAX, Math.min(TMAX, side.dHat + 144 * pErr * dt));
-      // PTOS: sqrt profile far out, linear terminal zone near the target —
-      // pure sqrt limit-cycles under discretization (measured), linear kills it
-      var eR = wrap(target - side.refTh), ae = Math.abs(eR);
-      var vProf = ae < E_LIN ? K_LIN * ae : Math.sqrt(2 * A_MAX * ae);
-      var vDes = (eR >= 0 ? 1 : -1) * Math.min(vProf, V_MAX);
-      var applied = Math.max(-A_MAX * dt, Math.min(A_MAX * dt, vDes - side.refW));
-      side.refW += applied;
-      side.refTh = wrap(side.refTh + side.refW * dt);
-      var aRef = applied / dt;
-      var predTh = wrap(side.est + side.estW * dt * (LAT + 1));
-      tq = J * aRef + B * side.refW
-        + 40.0 * wrap(side.refTh - predTh) + 11.0 * (side.refW - side.estW)
-        - side.dHat;
-    }
-    tq = Math.max(-TMAX, Math.min(TMAX, tq));
-    if (side.kind !== 'naive') side.tauPrev = tq;
-    side.w += ((tq - B * side.w + distT) / J) * dt;
-    side.th = wrap(side.th + side.w * dt);
-  }
 
   var dist = 0;
   function physics() {
     for (var s = 0; s < SUB; s++) {
       var n = gauss(), envN = gauss() * 0.15;
-      stepSide(S[0], DT, n, dist + envN);
-      stepSide(S[1], DT, n, dist + envN);
+      ProofDynamics.stepSide(S[0], target, DT, n, dist + envN);
+      ProofDynamics.stepSide(S[1], target, DT, n, dist + envN);
       dist *= Math.exp(-DT * 6);
     }
   }
