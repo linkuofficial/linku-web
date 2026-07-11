@@ -13,7 +13,7 @@
 
   <title>Technology — LINKU</title>
   <meta name="description"
-    content="LINKU's technology: AI and control integrated into compact machines through software–hardware co-design — built for the task, running on-site, and improving over time." />
+    content="LINKU's technology: AI and control integrated into compact machines — designed around the task, able to run on-site, and tunable as conditions evolve." />
 
   <!-- Canonical + language alternates -->
   <link rel="canonical" href="https://linku.tech/technology/" />
@@ -28,7 +28,7 @@
   <meta property="og:site_name" content="LINKU" />
   <meta property="og:title" content="Technology — LINKU" />
   <meta property="og:description"
-    content="AI and control integrated into compact machines through software–hardware co-design — built for the task, running on-site, and improving over time." />
+    content="AI and control integrated into compact machines — designed around the task, able to run on-site, and tunable as conditions evolve." />
   <meta property="og:locale" content="en_US" />
   <meta property="og:locale:alternate" content="zh_TW" />
   <meta property="og:locale:alternate" content="ja_JP" />
@@ -65,7 +65,7 @@
         "logo": "https://linku.tech/assets/favicon.svg",
         "image": "https://linku.tech/assets/og-image.png",
         "email": "info@linku.tech",
-        "description": "LINKU is an early-stage technology venture building edge AI, control systems, and small, customizable intelligent machines that perceive, decide, and act in the real world. Its method is software–hardware co-design: pairing compact, scene-optimized edge models with the hardware so the whole system outperforms conventional approaches on comparable hardware.",
+        "description": "LINKU is an early-stage technology venture building edge AI, control systems, and small, customizable intelligent machines. Its software–hardware co-design approach coordinates models, control, sensing, and hardware constraints around a defined task to pursue more useful task performance within comparable hardware limits.",
         "disambiguatingDescription": "An early-stage technology venture focused on edge AI, control, and intelligent machines built through software–hardware co-design.",
         "slogan": "Intelligence, made physical.",
         "foundingDate": "2026",
@@ -96,11 +96,12 @@
 </head>
 
 <body>
-  <canvas id="particles"></canvas>
-  <div class="cursor-ring"></div>
-  <div class="cursor-dot"></div>
+  <a class="skip-link" href="#top">Skip to content</a>
+  <canvas id="particles" aria-hidden="true" data-l-play="Play background animation" data-l-pause="Pause background animation"></canvas>
+  <div class="cursor-ring" aria-hidden="true"></div>
+  <div class="cursor-dot" aria-hidden="true"></div>
 
-  <nav>
+  <nav aria-label="Primary">
     <a href="/" class="brand">LINKU</a>
     <div class="nav-right">
       <ul class="nav-links">
@@ -117,31 +118,72 @@
     </div>
   </nav>
 
-  <div class="wrap" id="top">
+  <main class="wrap" id="top" tabindex="-1">
 
     <header class="tech-hero section-pad" data-screen-label="Technology">
       <div class="label reveal">Technology</div>
       <h1 class="tech-hero-title reveal">Intelligence, made to fit.</h1>
-      <p class="tech-hero-sub reveal">LINKU integrates AI and control into compact machines — built for your setting, running on-site, and improving over time.</p>
+      <p class="tech-hero-sub reveal">LINKU integrates AI and control into compact machines — designed around the task, able to run on-site, and tunable as conditions evolve.</p>
     </header>
 
     <section class="tech section-pad">
       <div class="tech-item reveal">
-        <h2 class="tech-title">Built for you</h2>
-        <p class="tech-desc">Every system is built for a single task. From sensing to model, it is tuned to your setting — fitting real needs and constraints, and adapting as they evolve.</p>
+        <h2 class="tech-title">Designed for the task</h2>
+        <p class="tech-desc">We design around a defined task. From sensing to model, each layer can be tuned to the setting, its constraints, and changes over time.</p>
       </div>
       <div class="tech-item reveal">
-        <h2 class="tech-title">Runs on-site</h2>
-        <p class="tech-desc">Computation and decisions happen on the device itself, with no cloud round-trip and no wait on a connection. Response is immediate, operation stays reliable offline, and your data remains on-site — where speed and security matter most.</p>
+        <h2 class="tech-title">Can run on-site</h2>
+        <p class="tech-desc">Computation and decisions can happen on the device, avoiding a required cloud round trip. Depending on deployment, the system can continue offline and keep data local — useful where latency, connectivity, or data handling matters.</p>
       </div>
       <div class="tech-item reveal">
         <h2 class="tech-title">Value by design</h2>
-        <p class="tech-desc">Performance is not dictated by hardware specifications alone. Through software–hardware co-design, software unlocks the hardware's full potential, turning a sensible investment into performance beyond its spec. What we deliver is the outcome that matters.</p>
+        <p class="tech-desc">Hardware specifications define the boundary, not the outcome. Co-design coordinates models, control, sensing, and hardware to approach the system's practical limits. We focus on useful task performance within those constraints.</p>
       </div>
       <div class="tech-item reveal">
-        <h2 class="tech-title">Better with use</h2>
-        <p class="tech-desc">Once deployed, the system keeps learning from real-world settings — its judgment sharpening and its fit to your environment deepening over time. The longer it runs, the more it is worth.</p>
+        <h2 class="tech-title">Designed to adapt</h2>
+        <p class="tech-desc">Where a deployment supports data collection and updates, field data can inform later tuning, model updates, or control adjustments. Improvement is an engineering process, not an automatic promise.</p>
       </div>
+    </section>
+
+    <!-- CONTROL STUDY: two identical simulated plants, one variable — the algorithm. -->
+    <section class="proof section-pad" id="proof" data-screen-label="Control study">
+      <div class="label reveal">Control study</div>
+      <h2 class="proof-title reveal">Same simulated hardware, two control strategies.</h2>
+      <p class="proof-sub reveal">Both sides simulate the same plant, target, disturbance, and noise. The left uses a competent fixed-gain PID; the right uses model-based control built from public best practices on the same simulated hardware. This illustrates one control-layer contribution to software–hardware co-design, not physical hardware validation. Faster settling can support higher cycle rates; lower error can reduce the margin required from mechanics and sensing.</p>
+      <p class="proof-note reveal">Simulated illustration, not measured data &middot; Both sides share one target, one disturbance, one noise sequence &middot; Honors prefers-reduced-motion; pauses off-screen</p>
+      <p class="proof-same reveal" aria-hidden="true">
+        <span>Same motor model</span><span class="sep">&middot;</span>
+        <span>Same torque limit</span><span class="sep">&middot;</span>
+        <span>Same encoder &amp; loop rate</span><span class="sep">&mdash;</span>
+        <span>the only difference: <span class="only">the algorithm</span></span>
+      </p>
+      <div class="proof-stage reveal">
+        <canvas id="proof-canvas" data-l-settle="settling"
+          aria-label="Two identical simulated axes track the same target. The left uses fixed-gain PID and the right uses model-based control. The thin lines below trace each side's error over time."></canvas>
+        <div class="proof-caps">
+          <div class="proof-cap"><span>Common practice</span><output id="proof-s0">settling —</output></div>
+          <div class="proof-cap linku"><span>Model-based</span><output id="proof-s1">settling —</output></div>
+        </div>
+      </div>
+      <p class="proof-hint">Move the cursor to move the target &middot; Click to hit both sides with the same disturbance &middot; The thin line below traces error over time — flatter is better</p>
+      <p class="proof-hint-touch">Tap the rings to set the target &middot; Tap Disturb to hit both sides at once &middot; The thin line below traces error over time — flatter is better</p>
+      <div class="proof-controls" aria-label="Simulation controls">
+        <button id="proof-target" class="proof-control" type="button">New target</button>
+        <button id="proof-disturb" class="proof-control" type="button">Disturb</button>
+        <button id="proof-play" class="proof-control" type="button" data-play="Play animation" data-pause="Pause">Pause</button>
+      </div>
+      <details class="proof-details">
+        <summary class="proof-summary">For engineers: model &amp; parameters</summary>
+        <div class="proof-spec">
+          <b>Plant (identical)</b>&#8195;J&middot;&#952;&#776; = &#964; &#8722; b&middot;&#952;&#775; + d(t), J = 1, b = 0.15, |&#964;| &#8804; 6; 240 Hz loop, 1-tick sensing latency (both sides)<br>
+          <b>Sensing (identical)</b>&#8195;encoder quantization 1.5&#176; (&#8776;240 CPR), Gaussian noise &#963; = 0.5&#176;; both sides consume the same noise sequence (common random numbers)<br>
+          <b>Common practice (a competent baseline)</b>&#8195;fixed-gain PID: &#964; = 20&middot;e + &#8747;12&middot;e &#8722; 5.8&middot;&#969;&#770;f (&#950; &#8776; 0.65); velocity by 6-tick encoder differencing + first-order low-pass (dirty derivative, &#969; &#8776; 20 rad/s); anti-windup by conditional integration (paused while the output saturates); raw step commands &#8212; no trajectory, no model feedforward, no observer, no latency compensation<br>
+          <b class="o">Model-based control (public best practice, deployed correctly)</b>&#8195;steady-state Kalman (&#945;&#8211;&#946;) estimate + one-tick forward prediction; near-time-optimal velocity governor (PTOS: v &#8804; &#8730;(2a&middot;e) far out, linear terminal zone near; a &#8804; 0.8&middot;&#964;max/J keeps feedback headroom); model feedforward &#964;ff = J&middot;a_ref + b&middot;&#969;_ref; momentum disturbance observer (&#969; &#8776; 12 rad/s) estimates and cancels external torque; feedback &#964;fb = 40&middot;(&#952;ref&#8722;&#952;&#770;) + 11&middot;(&#969;ref&#8722;&#969;&#770;), &#950; &#8776; 0.87<br>
+          <b>Disturbance</b>&#8195;click = equal impulse torque to both sides; ambient torque noise is continuous and shared<br>
+          <b>Statistics</b>&#8195;settling = first entry into the &#177;2&#176; band held for 0.3 s (same definition both sides; the full error history is the thin trace below)<br>
+          <b>Scope</b>&#8195;everything on the right is public, textbook-grade technique; this simulation isolates one control-layer contribution to co-design and is not measured hardware evidence
+        </div>
+      </details>
     </section>
 
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
@@ -157,9 +199,11 @@
       </footer>
     </section>
 
-  </div>
+  </main>
 
+  <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>
+  <script src="/assets/proof.js"></script>
 
 </body>
 

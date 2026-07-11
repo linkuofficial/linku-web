@@ -24,6 +24,16 @@
  *     - 從 HTML 抽出這些元素的可見文字（略過 <script>/<style> 內容與註解，
  *       HTML 實體如 &copy;、&#8594; 先解碼），其中每個 CJK 字元都必須
  *       包含在該頁 &text= 參數內；缺字即 FAIL 並列出缺哪些字、在哪個選擇器
+ *  4. 資源預算與引用完整性（2026-07-08 rendering-upgrade P0 新增）：
+ *     - assets/*.js / *.css 的 Brotli 壓縮位元組數不得超過預算表（貼近實際傳輸成本）；
+ *       預算表中標記 optional 的檔案「不存在」不算 FAIL（尚未實作的階段），
+ *       但只要存在就必須守預算
+ *     - 頁面上引用的本地 /assets/ 資源（script src、link href）必須實際存在
+ *  5. 外部 origin 白名單（2026-07-08 rendering-upgrade P0 新增）：
+ *     - 所有頁面的 <script src> / <link href> 外部 origin 僅允許
+ *       fonts.googleapis.com、fonts.gstatic.com；其他一律 FAIL（守住零依賴）
+ *  6. 漸進增強與語義：每頁恰有一個 main、skip link、不跳級的標題；
+ *     reveal 與自訂游標只在 JS／游標確實啟動後才隱藏原生內容／游標
  *
  * 檢查範圍與已知限制（改動站台結構前先讀）：
  *  - 「CJK 字元」定義：漢字（U+4E00–9FFF、擴展A U+3400–4DBF、相容區 U+F900–FAFF）、
@@ -42,6 +52,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { brotliCompressSync, constants as zlibConstants } from 'node:zlib';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -483,15 +494,206 @@ if (!fs.existsSync(stylesPath)) {
     }
 
     const missing = [...required.entries()].filter(([ch]) => !subsetChars.has(ch));
-    if (missing.length === 0) {
-      pass(p.rel + ' — 頁面 CJK 字型元素共用 ' + required.size + ' 個相異 CJK 字元，全數包含於 &text=');
-    } else {
+    let body = null;
+    walk(tree, (node) => { if (!body && node.tag === 'body') body = node; });
+    const visibleBodyCJK = new Set(body ? [...textOf(body)].filter(isCJK) : []);
+    const stale = [...subsetChars].filter((ch) => isCJK(ch) && !visibleBodyCJK.has(ch));
+    if (missing.length === 0 && stale.length === 0) {
+      pass(p.rel + ' — CJK 字型子集涵蓋必要字元，且無過期 CJK 字元');
+    } else if (missing.length > 0) {
       const detail = missing
         .map(([ch, descs]) => '「' + ch + '」(U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0') + '，出現於 ' + [...descs].join('、') + ')')
         .join('；');
       fail(p.rel + ' — &text= 缺 ' + missing.length + ' 字：' + detail);
     }
+    if (stale.length > 0) {
+      fail(p.rel + ' — &text= 含 ' + stale.length + ' 個頁面正文已不存在的 CJK 字元：' + stale.join(''));
+    }
   }
+}
+
+// ---------- 4. 資源預算與引用完整性 ----------
+console.log('');
+console.log('=== 4. 資源預算與本地引用完整性 ===');
+
+// 預算為 Brotli quality 11 位元組數；比未壓縮大小更貼近實際傳輸成本，
+// 並保留約 20% 維護空間。optional=true 僅供「尚未實作的未來檔案」使用——
+// 已上線資產一律 optional:false（檔案消失＝FAIL，防 rename／誤刪讓功能
+// 靜默蒸發而 CI 全綠）。調整門檻請同步更新任務簡報。
+const ASSET_BUDGETS = [
+  { rel: 'assets/render.js', maxBytes: 18 * 1024, optional: false },
+  { rel: 'assets/proof.js',  maxBytes: 7 * 1024, optional: false },
+  { rel: 'assets/main.js',   maxBytes: 4 * 1024, optional: false },
+  { rel: 'assets/styles.css', maxBytes: 10 * 1024, optional: false },
+];
+
+// script src 抽取共用 helper：走 attrsOfTag（與 <link> 解析同一條路），
+// 單引號／無引號屬性一樣抓得到——§4 與 §5 必須對「頁面載入了什麼」
+// 有同一份答案，否則白名單會漏
+function scriptSrcsOf(p) {
+  return [...p.html.matchAll(/<script\b[^>]*>/gi)]
+    .map((m) => attrsOfTag(m[0]))
+    .filter((a) => a.src)
+    .map((a) => decodeEntities(a.src));
+}
+
+for (const b of ASSET_BUDGETS) {
+  const file = path.join(ROOT, ...b.rel.split('/'));
+  if (!fs.existsSync(file)) {
+    if (b.optional) pass(b.rel + ' — 尚未存在（optional，跳過預算檢查）');
+    else fail(b.rel + ' — 檔案不存在（必要資產）');
+    continue;
+  }
+  const size = brotliCompressSync(fs.readFileSync(file), {
+    params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 11 },
+  }).length;
+  if (size <= b.maxBytes) {
+    pass(b.rel + ' — Brotli ' + size + ' bytes ≤ 預算 ' + b.maxBytes + ' bytes');
+  } else {
+    fail(b.rel + ' — Brotli ' + size + ' bytes 超出預算 ' + b.maxBytes + ' bytes（效能護欄；若為刻意擴充請連同任務簡報一起調整）');
+  }
+}
+
+// 頁面引用的本地 /assets/ 資源必須存在（防 script/css 改名或誤刪後靜默 404）
+{
+  const missingRefs = [];
+  for (const p of pages) {
+    const refs = [
+      ...scriptSrcsOf(p),
+      ...p.links.map((a) => decodeEntities(a.href || '')),
+    ];
+    for (const href of refs) {
+      // 只有單斜線開頭＝本地絕對路徑；「//host/...」是 protocol-relative
+      // 外部 URL，歸 §5 白名單管
+      if (!href.startsWith('/') || href.startsWith('//')) continue;
+      const clean = href.split(/[?#]/)[0];
+      const file = path.join(ROOT, ...clean.split('/').filter(Boolean));
+      if (!fs.existsSync(file)) missingRefs.push(p.rel + ' 引用了不存在的 ' + clean);
+    }
+  }
+  if (missingRefs.length === 0) {
+    pass('九頁引用的本地資源全部存在');
+  } else {
+    for (const m of missingRefs) fail(m);
+  }
+}
+
+// ---------- 5. 外部 origin 白名單 ----------
+console.log('');
+console.log('=== 5. 外部 origin 白名單（script src / link href） ===');
+
+const ALLOWED_ORIGINS = new Set(['fonts.googleapis.com', 'fonts.gstatic.com']);
+// 只檢查「會觸發資源抓取／連線」的 link rel；canonical、alternate 等純中繼資料
+// 指向本站 URL，屬 §1 的檢查範圍，不在資源白名單管轄內。
+const FETCHING_RELS = new Set([
+  'stylesheet', 'icon', 'shortcut icon', 'apple-touch-icon', 'manifest',
+  'preload', 'prefetch', 'modulepreload', 'preconnect', 'dns-prefetch',
+]);
+{
+  const offenders = [];
+  for (const p of pages) {
+    const urls = [
+      ...scriptSrcsOf(p),
+      ...p.links
+        .filter((a) => FETCHING_RELS.has((a.rel || '').toLowerCase()))
+        .map((a) => decodeEntities(a.href || '')),
+    ];
+    for (const href of urls) {
+      const m = href.match(/^(?:https?:)?\/\/([^/]+)/i);
+      if (!m) continue;                              // 本地路徑
+      const host = m[1].toLowerCase();
+      if (!ALLOWED_ORIGINS.has(host)) offenders.push(p.rel + ' 引用了白名單外的 origin：' + host + '（' + href + '）');
+    }
+  }
+  if (offenders.length === 0) {
+    pass('所有頁面的外部 origin 僅限 fonts.googleapis.com / fonts.gstatic.com');
+  } else {
+    for (const o of offenders) fail(o);
+  }
+}
+
+// ---------- 6. 漸進增強與語義 ----------
+console.log('');
+console.log('=== 6. 漸進增強與語義結構 ===');
+{
+  const issues = [];
+  for (const p of pages) {
+    const mainCount = (p.html.match(/<main\b/gi) || []).length;
+    if (mainCount !== 1) issues.push(p.rel + ' — <main> 數量為 ' + mainCount + '（預期 1）');
+    if (!/<a\b[^>]*class=["'][^"']*\bskip-link\b[^"']*["'][^>]*href=["']#top["']/i.test(p.html)) {
+      issues.push(p.rel + ' — 缺少指向 #top 的 skip link');
+    }
+    const levels = [...p.html.matchAll(/<h([1-6])\b/gi)].map((m) => Number(m[1]));
+    if (levels[0] !== 1) issues.push(p.rel + ' — 第一個標題不是 h1');
+    for (let i = 1; i < levels.length; i++) {
+      if (levels[i] > levels[i - 1] + 1) issues.push(p.rel + ' — 標題層級由 h' + levels[i - 1] + ' 跳至 h' + levels[i]);
+    }
+  }
+  const css = readText(stylesPath);
+  const mainJs = readText(path.join(ROOT, 'assets', 'main.js'));
+  if (!/\.js\s+\.reveal\s*\{/.test(css)) issues.push('styles.css — reveal 未受 .js enhancement gate 保護');
+  if (!/\.cursor-ready\s+body\s*\{/.test(css)) issues.push('styles.css — cursor:none 未受 .cursor-ready gate 保護');
+  if (!/document\.documentElement\.classList\.add\(['"]js['"]\)/.test(mainJs.slice(0, 400))) {
+    issues.push('main.js — 啟動區未設定 html.js enhancement gate');
+  }
+  if (issues.length === 0) pass('九頁 main／skip link／標題層級與 no-JS enhancement gates 完整');
+  else for (const issue of issues) fail(issue);
+}
+
+// ---------- 總結 ----------
+console.log('');
+console.log('=== 7. 對外可信度與結構化資料一致性 ===');
+{
+  const issues = [];
+  const descriptions = new Map();
+  const banned = [
+    /improving over time/i, /keeps learning/i, /data remains on-site/i,
+    /performance beyond its spec/i, /越用越強/, /資料亦始終留存本地/,
+    /使うほど賢く/, /データは手元に留まります/,
+  ];
+  for (const p of pages) {
+    for (const pattern of banned) {
+      if (pattern.test(p.html)) issues.push(p.rel + ' — 仍含未加條件的對外承諾：' + pattern);
+    }
+    const ldScripts = [...p.html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+    if (ldScripts.length !== 1) {
+      issues.push(p.rel + ' — Organization JSON-LD 數量為 ' + ldScripts.length + '（預期 1）');
+      continue;
+    }
+    try {
+      const data = JSON.parse(ldScripts[0][1]);
+      const nodes = Array.isArray(data['@graph']) ? data['@graph'] : [data];
+      const org = nodes.find((node) => node && node['@type'] === 'Organization');
+      if (!org) throw new Error('缺少 Organization node');
+      if (org.foundingDate !== '2026') issues.push(p.rel + ' — JSON-LD foundingDate 應為 inception year 2026');
+      if (!Array.isArray(org.sameAs) || !org.sameAs.includes('https://github.com/linkuofficial')) {
+        issues.push(p.rel + ' — JSON-LD sameAs 缺少官方 GitHub');
+      }
+      const lang = p.expectedLang;
+      if (!descriptions.has(lang)) descriptions.set(lang, new Map());
+      const byDescription = descriptions.get(lang);
+      byDescription.set(org.description, [...(byDescription.get(org.description) || []), p.rel]);
+    } catch (error) {
+      issues.push(p.rel + ' — JSON-LD 無法解析：' + error.message);
+    }
+  }
+  for (const [lang, variants] of descriptions) {
+    if (variants.size !== 1) {
+      issues.push(lang + ' — 三頁 Organization description 不一致：'
+        + [...variants.values()].map((files) => files.join(', ')).join(' / '));
+    }
+  }
+  const inceptionRules = [
+    ['about/index.html', /<dt>Since<\/dt><dd>2026<\/dd>/],
+    ['zh/about/index.html', /<dt>起步於<\/dt><dd>2026<\/dd>/],
+    ['ja/about/index.html', /<dt>活動開始<\/dt><dd>2026<\/dd>/],
+  ];
+  for (const [rel, pattern] of inceptionRules) {
+    const page = pages.find((p) => p.rel === rel);
+    if (!page || !pattern.test(page.html)) issues.push(rel + ' — 對外起始年份用字不符 facts 決議');
+  }
+  if (issues.length === 0) pass('三語承諾用字、活動起始年份與 Organization JSON-LD 一致');
+  else for (const issue of issues) fail(issue);
 }
 
 // ---------- 總結 ----------

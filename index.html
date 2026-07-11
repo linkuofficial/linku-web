@@ -63,7 +63,7 @@
         "logo": "https://linku.tech/assets/favicon.svg",
         "image": "https://linku.tech/assets/og-image.png",
         "email": "info@linku.tech",
-        "description": "LINKU is an early-stage venture building edge AI, control systems, and small, customizable intelligent machines that perceive, decide, and act in the real world. Its approach is software–hardware co-design: pairing compact, scene-optimized edge models with the hardware so the whole system outperforms conventional approaches on comparable hardware.",
+        "description": "LINKU is an early-stage technology venture building edge AI, control systems, and small, customizable intelligent machines. Its software–hardware co-design approach coordinates models, control, sensing, and hardware constraints around a defined task to pursue more useful task performance within comparable hardware limits.",
         "disambiguatingDescription": "An early-stage technology venture focused on edge AI, control, and intelligent machines built through software–hardware co-design.",
         "slogan": "Intelligence, made physical.",
         "foundingDate": "2026",
@@ -93,15 +93,16 @@
 </head>
 
 <body>
-  <canvas id="particles"></canvas>
-  <div class="cursor-ring"></div>
-  <div class="cursor-dot"></div>
+  <a class="skip-link" href="#top">Skip to content</a>
+  <canvas id="particles" aria-hidden="true" data-l-play="Play background animation" data-l-pause="Pause background animation"></canvas>
+  <div class="cursor-ring" aria-hidden="true"></div>
+  <div class="cursor-dot" aria-hidden="true"></div>
 
-  <nav>
+  <nav aria-label="Primary">
     <a href="#top" class="brand">LINKU</a>
     <div class="nav-right">
       <ul class="nav-links">
-        <li><a href="#work">Work</a></li>
+        <li><a href="#work">Approach</a></li>
         <li><a href="/technology/">Technology</a></li>
         <li><a href="/about/">About</a></li>
       </ul>
@@ -115,7 +116,7 @@
     </div>
   </nav>
 
-  <div class="wrap" id="top">
+  <main class="wrap" id="top" tabindex="-1">
 
     <!-- HERO -->
     <header class="hero section-pad" data-screen-label="Hero">
@@ -150,21 +151,21 @@
         <div class="pillar reveal">
           <div class="pillar-num">01</div>
           <div>
-            <h3 class="pillar-title">Edge Intelligence</h3>
+            <h2 class="pillar-title">Edge Intelligence</h2>
             <p class="pillar-tag">Mind in the machine.</p>
           </div>
         </div>
         <div class="pillar reveal">
           <div class="pillar-num">02</div>
           <div>
-            <h3 class="pillar-title">Control &amp; Systems</h3>
+            <h2 class="pillar-title">Control &amp; Systems</h2>
             <p class="pillar-tag">Decision into motion.</p>
           </div>
         </div>
         <div class="pillar reveal">
           <div class="pillar-num">03</div>
           <div>
-            <h3 class="pillar-title">Intelligent Machines</h3>
+            <h2 class="pillar-title">Intelligent Machines</h2>
             <p class="pillar-tag">Matter that thinks.</p>
           </div>
         </div>
@@ -187,8 +188,9 @@
       </footer>
     </section>
 
-  </div>
+  </main>
 
+  <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>
 
 </body>

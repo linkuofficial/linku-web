@@ -1,0 +1,4 @@
+# Keep internal briefs and rendering prototypes out of the public deployment.
+# They live in the repo as records but must not be served at linku.tech/docs/*.
+# (.vercelignore uses .gitignore syntax; affects deploy upload only, not git.)
+docs/

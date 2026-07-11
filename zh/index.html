@@ -46,7 +46,7 @@
        If you add/change Traditional-Chinese copy, update the &text= string below;
        any missing glyph quietly falls back to the system CJK font (no broken layout). -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&text=讓智慧化為實體。在人工智慧與物理世界交會之處。捲動。理念。讓智慧與物質交會的系統——在真實世界中感知、決策、行動的機器。專案。未完待續。一套運行於智慧與基礎設施邊緣的線上系統。我們做什麼。邊緣智慧。機器中的心智。控制與系統。決策，化為運動。智慧機器。會思考的物質。聯絡。一起打造吧。如果你也有一個橫跨智慧與物理世界的構想，歡迎來信。LINKU是一個早期階段的技術專案打造邊緣控制系統以及能感知決策行動的小型可客製智慧機器我們的方法是軟硬協同設計以低成本的現成硬體搭配場景優化的小型邊緣模型讓整體性能超越同等硬體的一般方案。讓模型直接在低成本的邊緣硬體上高效運行。把模型的決策轉為真實世界中可靠的致動與控制。能自主感知決策行動的小型可客製機器。關於。一套互動式跨領域知識圖譜——探索不同領域的概念如何相互連結。我們追求務實、可部署的智慧——不是更大的模型，而是更聰明的整體系統。聯繫我們。&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&text=%E8%B7%B3%E8%87%B3%E4%B8%BB%E8%A6%81%E5%85%A7%E5%AE%B9%20LINKU%E7%90%86%E5%BF%B5%E6%8A%80%E8%A1%93%E9%97%9C%E6%96%BCE%C2%B7%E7%B9%81%E6%97%A5%E8%AE%93%E6%99%BA%E6%85%A7%EF%BC%8C%E5%8C%96%E7%82%BA%E5%AF%A6%E9%AB%94%E3%80%82%E6%89%93%E9%80%A0%E8%83%BD%E5%9C%A8%E7%9C%9F%E4%B8%96%E7%95%8C%E4%B8%AD%E6%84%9F%E7%9F%A5%E3%80%81%E6%B1%BA%E7%AD%96%E8%A1%8C%E5%8B%95%E7%9A%84%E5%B0%8F%E5%9E%8B%E6%A9%9F%E5%99%A8%E6%8D%B2%E8%88%87%E7%89%A9%E8%B3%AA%E4%BA%A4%E6%9C%83%E7%B3%BB%E7%B5%B1%E2%80%94%E6%88%91%E5%80%91%E8%BF%BD%E6%B1%82%E5%8B%99%E5%8F%AF%E9%83%A8%E7%BD%B2%E4%B8%8D%E6%98%AF%E6%9B%B4%E5%A4%A7%E6%A8%A1%E8%80%8C%E8%81%B0%E6%98%8E%E6%95%B4%E2%86%92%E5%81%9A%E4%BB%80%E9%BA%BC01%E9%82%8A%E7%B7%A3%E5%BF%832%E6%8E%A7%E5%88%B6%E9%81%8B3%E6%80%9D%E8%80%83%E6%8E%A2%E7%B4%A2%E8%81%AF%E7%B5%A1%E7%B9%AB%E5%A6%82%E6%9E%9C%E4%BD%A0%E4%B9%9F%E6%9C%89%E4%B8%80%E5%80%8B%E6%A9%AB%E8%B7%A8%E6%A7%8B%E6%83%B3%E6%AD%A1%E8%BF%8E%E4%BE%86%E4%BF%A1info%40lku.tech%C2%A96%E4%BA%BA%E5%B7%A5%C3%97&display=swap"
     rel="stylesheet" />
 
   <link rel="stylesheet" href="/assets/styles.css" />
@@ -65,7 +65,7 @@
         "logo": "https://linku.tech/assets/favicon.svg",
         "image": "https://linku.tech/assets/og-image.png",
         "email": "info@linku.tech",
-        "description": "LINKU 是一個早期階段的技術專案，打造邊緣 AI、控制系統，以及能感知、決策、行動的小型可客製智慧機器。其方法是軟硬協同設計：以場景優化的小型邊緣模型與硬體協同，讓整體性能超越同等硬體的一般方案。",
+        "description": "LINKU 是一個早期階段的技術專案，打造邊緣 AI、控制系統與小型可客製智慧機器。軟硬協同設計圍繞明確任務，協調模型、控制、感測與硬體限制，力求在相近硬體條件內取得更有用的任務表現。",
         "disambiguatingDescription": "專注於邊緣 AI、控制與智慧機器、以軟硬協同設計打造產品的早期階段技術專案。",
         "slogan": "讓智慧，化為實體",
         "foundingDate": "2026",
@@ -95,11 +95,12 @@
 </head>
 
 <body>
-  <canvas id="particles"></canvas>
-  <div class="cursor-ring"></div>
-  <div class="cursor-dot"></div>
+  <a class="skip-link" href="#top">跳至主要內容</a>
+  <canvas id="particles" aria-hidden="true" data-l-play="播放背景動畫" data-l-pause="暫停背景動畫"></canvas>
+  <div class="cursor-ring" aria-hidden="true"></div>
+  <div class="cursor-dot" aria-hidden="true"></div>
 
-  <nav>
+  <nav aria-label="主要導覽">
     <a href="#top" class="brand">LINKU</a>
     <div class="nav-right">
       <ul class="nav-links">
@@ -117,7 +118,7 @@
     </div>
   </nav>
 
-  <div class="wrap" id="top">
+  <main class="wrap" id="top" tabindex="-1">
 
     <!-- HERO -->
     <header class="hero section-pad" data-screen-label="Hero">
@@ -149,21 +150,21 @@
         <div class="pillar reveal">
           <div class="pillar-num">01</div>
           <div>
-            <h3 class="pillar-title">邊緣智慧</h3>
+            <h2 class="pillar-title">邊緣智慧</h2>
             <p class="pillar-tag">機器中的心智。</p>
           </div>
         </div>
         <div class="pillar reveal">
           <div class="pillar-num">02</div>
           <div>
-            <h3 class="pillar-title">控制與系統</h3>
+            <h2 class="pillar-title">控制與系統</h2>
             <p class="pillar-tag">決策，化為運動。</p>
           </div>
         </div>
         <div class="pillar reveal">
           <div class="pillar-num">03</div>
           <div>
-            <h3 class="pillar-title">智慧機器</h3>
+            <h2 class="pillar-title">智慧機器</h2>
             <p class="pillar-tag">會思考的物質。</p>
           </div>
         </div>
@@ -185,8 +186,9 @@
       </footer>
     </section>
 
-  </div>
+  </main>
 
+  <script src="/assets/render.js"></script>
   <script src="/assets/main.js"></script>
 
 </body>
