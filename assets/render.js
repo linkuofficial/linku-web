@@ -1110,16 +1110,6 @@
     svIn.a = svIn.target = 0.75; svIn.v = 0;
     render(0.016);
   }
-  function snapOverlay() {
-    try {
-      var img = document.createElement('img');
-      img.alt = '';
-      img.setAttribute('aria-hidden', 'true');
-      img.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100vh;z-index:0;pointer-events:none;object-fit:cover;';
-      img.src = canvas.toDataURL('image/png');
-      canvas.parentNode.insertBefore(img, canvas.nextSibling);
-    } catch (e) { }
-  }
   function injectToggle() {
     // localized labels live in each page's HTML data attributes (same i18n
     // mechanism as the proof section) — never in shared JS

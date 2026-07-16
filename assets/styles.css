@@ -3,9 +3,7 @@
   --cream: #e8e6e0;
   --muted: #969696;
   --muted-dim: #777;
-  --ghost: #1b1b1b;
   --line: rgba(232, 230, 224, 0.12);
-  --live: oklch(0.72 0.16 150);
   --amber: #e8b478;
   --steel: #8194ab;
   --display: 'Bebas Neue', sans-serif;
@@ -320,7 +318,8 @@ nav {
   transition: width 0.3s ease;
 }
 
-.nav-links a:hover {
+.nav-links a:hover,
+.nav-links a:focus-visible {
   color: var(--cream);
 }
 
@@ -352,6 +351,7 @@ nav {
 }
 
 .lang-switch a:hover,
+.lang-switch a:focus-visible,
 .lang-switch a.active {
   color: var(--cream);
 }
@@ -359,6 +359,19 @@ nav {
 .lang-switch .sep {
   color: var(--muted-dim);
   user-select: none;
+}
+
+.brand:focus-visible,
+.nav-links a:focus-visible,
+.lang-switch a:focus-visible,
+.more-link:focus-visible,
+.contact-mail:focus-visible,
+.about-facts a:focus-visible,
+.scene-toggle:focus-visible,
+.proof-control:focus-visible,
+.proof-summary:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: 4px;
 }
 
 /* ---------- Hero ---------- */
@@ -579,17 +592,6 @@ html[lang="en"] .pillar-title {
   letter-spacing: 0.02em;
   color: rgba(232, 230, 224, 0.55);
   max-width: 58ch;
-}
-
-.pillar-desc {
-  margin-top: 10px;
-  font-family: var(--body);
-  font-weight: 300;
-  font-size: 0.8rem;
-  line-height: 1.7;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.42);
-  max-width: 46ch;
 }
 
 /* ---------- About page ---------- */
@@ -841,6 +843,12 @@ html[lang="en"] .pillar-title {
   /* keep page scroll alive over the canvas on touch */
 }
 
+.proof-still-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .proof-caps {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1026,28 +1034,6 @@ html[lang="en"] .pillar-title {
   }
 }
 
-/* ---------- Projects ---------- */
-.projects {
-  padding-top: clamp(100px, 14vh, 180px);
-  padding-bottom: clamp(100px, 14vh, 180px);
-  border-top: 1px solid var(--line);
-}
-
-.projects-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.more {
-  font-size: 0.65rem;
-  letter-spacing: var(--label-tracking);
-  color: rgba(255, 255, 255, var(--label-opacity));
-  text-transform: uppercase;
-}
-
 /* ---------- Section link (routes to a dedicated page) ---------- */
 .more-link {
   display: inline-block;
@@ -1093,108 +1079,6 @@ html[lang="en"] .pillar-title {
 
 .more-link:hover .arrow {
   transform: translateX(5px);
-}
-
-.project-list {
-  margin-top: clamp(48px, 8vh, 96px);
-}
-
-.project {
-  display: block;
-  text-decoration: none;
-  color: inherit;
-  border-top: 1px solid var(--line);
-  padding: clamp(28px, 4vw, 48px) 0;
-  position: relative;
-}
-
-.project:last-child {
-  border-bottom: 1px solid var(--line);
-}
-
-.project-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-
-.project-name-wrap {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-
-.project-name {
-  font-family: var(--display);
-  font-size: clamp(48px, 9vw, 132px);
-  line-height: 0.9;
-  color: var(--cream);
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s ease;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  color: var(--live);
-  border: 1px solid color-mix(in oklch, var(--live) 40%, transparent);
-  padding: 6px 12px;
-  border-radius: 100px;
-  align-self: center;
-}
-
-.badge .dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--live);
-  box-shadow: 0 0 0 0 color-mix(in oklch, var(--live) 60%, transparent);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in oklch, var(--live) 60%, transparent);
-  }
-
-  70% {
-    box-shadow: 0 0 0 7px transparent;
-  }
-
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
-}
-
-.project-arrow {
-  font-family: var(--body);
-  font-size: 28px;
-  color: var(--muted);
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s ease;
-}
-
-.project-meta {
-  margin-top: 14px;
-  font-size: 0.8rem;
-  font-style: italic;
-  letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.6);
-  max-width: 46ch;
-}
-
-.project:hover .project-name {
-  transform: translateX(18px);
-}
-
-.project:hover .project-arrow {
-  transform: translate(8px, -8px);
-  color: var(--cream);
 }
 
 /* ---------- Pillars (What We Do) ---------- */
@@ -1409,8 +1293,7 @@ footer {
 html.motion-paused body::before,
 html.motion-paused body::after,
 html.motion-paused .scroll-cue,
-html.motion-paused .scroll-cue .bar::after,
-html.motion-paused .badge .dot {
+html.motion-paused .scroll-cue .bar::after {
   animation-play-state: paused !important;
 }
 
@@ -1522,8 +1405,6 @@ html[lang="ja"] .hero-sub {
   max-width: 42ch;
 }
 
-html[lang="zh-Hant"] .project-meta,
-html[lang="ja"] .project-meta,
 html[lang="zh-Hant"] .contact-note,
 html[lang="ja"] .contact-note {
   font-family: var(--cjk-body);
@@ -1534,9 +1415,7 @@ html[lang="ja"] .contact-note {
 }
 
 html[lang="zh-Hant"] .statement-fact,
-html[lang="ja"] .statement-fact,
-html[lang="zh-Hant"] .pillar-desc,
-html[lang="ja"] .pillar-desc {
+html[lang="ja"] .statement-fact {
   font-family: var(--cjk-body);
   letter-spacing: 0.04em;
   line-height: 1.9;
@@ -1652,9 +1531,7 @@ html[lang="ja"] .pillar-tag,
 html[lang="zh-Hant"] .nav-links a,
 html[lang="ja"] .nav-links a,
 html[lang="zh-Hant"] .label,
-html[lang="ja"] .label,
-html[lang="zh-Hant"] .more,
-html[lang="ja"] .more {
+html[lang="ja"] .label {
   font-family: var(--cjk-body);
 }
 
@@ -1688,6 +1565,9 @@ html[lang="ja"] .more-link {
   }
 
   .brand {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
     letter-spacing: 0.3em;
     text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
   }
@@ -1717,7 +1597,15 @@ html[lang="ja"] .more-link {
     color: var(--cream);
   }
 
-  .lang-switch a,
+  .lang-switch a {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
+  }
+
   .lang-switch .sep {
     text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
   }

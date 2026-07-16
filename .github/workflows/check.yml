@@ -15,3 +15,10 @@ jobs:
         with:
           node-version: 20
       - run: node scripts/check.mjs
+      - run: node scripts/proof.test.cjs
+      - run: node scripts/proof-dynamics.test.cjs
+      - name: JS syntax check
+        run: |
+          for f in $(find assets scripts -name '*.js' -o -name '*.mjs' -o -name '*.cjs'); do
+            node --check "$f"
+          done
