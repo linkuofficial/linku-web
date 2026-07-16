@@ -3,9 +3,7 @@
   --cream: #e8e6e0;
   --muted: #969696;
   --muted-dim: #777;
-  --ghost: #1b1b1b;
   --line: rgba(232, 230, 224, 0.12);
-  --live: oklch(0.72 0.16 150);
   --amber: #e8b478;
   --steel: #8194ab;
   --display: 'Bebas Neue', sans-serif;
@@ -361,6 +359,19 @@ nav {
 .lang-switch .sep {
   color: var(--muted-dim);
   user-select: none;
+}
+
+.brand:focus-visible,
+.nav-links a:focus-visible,
+.lang-switch a:focus-visible,
+.more-link:focus-visible,
+.contact-mail:focus-visible,
+.about-facts a:focus-visible,
+.scene-toggle:focus-visible,
+.proof-control:focus-visible,
+.proof-summary:focus-visible {
+  outline: 2px solid var(--cream);
+  outline-offset: 4px;
 }
 
 /* ---------- Hero ---------- */
@@ -832,6 +843,12 @@ html[lang="en"] .pillar-title {
   /* keep page scroll alive over the canvas on touch */
 }
 
+.proof-still-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
 .proof-caps {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1015,13 +1032,6 @@ html[lang="en"] .pillar-title {
     align-items: center;
     text-align: center;
   }
-}
-
-.more {
-  font-size: 0.65rem;
-  letter-spacing: var(--label-tracking);
-  color: rgba(255, 255, 255, var(--label-opacity));
-  text-transform: uppercase;
 }
 
 /* ---------- Section link (routes to a dedicated page) ---------- */
@@ -1283,8 +1293,7 @@ footer {
 html.motion-paused body::before,
 html.motion-paused body::after,
 html.motion-paused .scroll-cue,
-html.motion-paused .scroll-cue .bar::after,
-html.motion-paused .badge .dot {
+html.motion-paused .scroll-cue .bar::after {
   animation-play-state: paused !important;
 }
 
@@ -1396,8 +1405,6 @@ html[lang="ja"] .hero-sub {
   max-width: 42ch;
 }
 
-html[lang="zh-Hant"] .project-meta,
-html[lang="ja"] .project-meta,
 html[lang="zh-Hant"] .contact-note,
 html[lang="ja"] .contact-note {
   font-family: var(--cjk-body);
@@ -1408,9 +1415,7 @@ html[lang="ja"] .contact-note {
 }
 
 html[lang="zh-Hant"] .statement-fact,
-html[lang="ja"] .statement-fact,
-html[lang="zh-Hant"] .pillar-desc,
-html[lang="ja"] .pillar-desc {
+html[lang="ja"] .statement-fact {
   font-family: var(--cjk-body);
   letter-spacing: 0.04em;
   line-height: 1.9;
@@ -1526,9 +1531,7 @@ html[lang="ja"] .pillar-tag,
 html[lang="zh-Hant"] .nav-links a,
 html[lang="ja"] .nav-links a,
 html[lang="zh-Hant"] .label,
-html[lang="ja"] .label,
-html[lang="zh-Hant"] .more,
-html[lang="ja"] .more {
+html[lang="ja"] .label {
   font-family: var(--cjk-body);
 }
 
@@ -1562,6 +1565,9 @@ html[lang="ja"] .more-link {
   }
 
   .brand {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
     letter-spacing: 0.3em;
     text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
   }
@@ -1592,9 +1598,11 @@ html[lang="ja"] .more-link {
   }
 
   .lang-switch a {
+    min-width: 44px;
     min-height: 44px;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     text-shadow: 0 1px 9px rgba(10, 10, 10, 0.9);
   }
 

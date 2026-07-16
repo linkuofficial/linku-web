@@ -433,7 +433,7 @@ if (typeof module !== 'undefined' && module.exports) {
         var img = document.createElement('img');
         img.alt = cv.getAttribute('aria-label') || '';
         img.src = cv.toDataURL('image/png');
-        img.style.cssText = 'display:block;width:100%;height:' + Hc + 'px;';
+        img.className = 'proof-still-image';
         cv.replaceWith(img);
       } catch (e) { }
     }

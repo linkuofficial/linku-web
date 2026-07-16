@@ -34,6 +34,9 @@
  *       fonts.googleapis.com、fonts.gstatic.com；其他一律 FAIL（守住零依賴）
  *  6. 漸進增強與語義：每頁恰有一個 main、skip link、不跳級的標題；
  *     reveal 與自訂游標只在 JS／游標確實啟動後才隱藏原生內容／游標
+ *  7. 對外可信度與 Organization JSON-LD 的跨語一致性
+ *  8. Metadata／互動安全／i18n 細節與英文入口語言導向回歸
+ *  9. Vercel 安全標頭、CSP router hash 與嚴格 CSP 相容性
  *
  * 檢查範圍與已知限制（改動站台結構前先讀）：
  *  - 「CJK 字元」定義：漢字（U+4E00–9FFF、擴展A U+3400–4DBF、相容區 U+F900–FAFF）、
@@ -51,7 +54,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
+import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { brotliCompressSync, constants as zlibConstants } from 'node:zlib';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -640,7 +645,7 @@ console.log('=== 6. 漸進增強與語義結構 ===');
   else for (const issue of issues) fail(issue);
 }
 
-// ---------- 總結 ----------
+// ---------- 7. 對外可信度與結構化資料 ----------
 console.log('');
 console.log('=== 7. 對外可信度與結構化資料一致性 ===');
 {
@@ -693,6 +698,195 @@ console.log('=== 7. 對外可信度與結構化資料一致性 ===');
     if (!page || !pattern.test(page.html)) issues.push(rel + ' — 對外起始年份用字不符 facts 決議');
   }
   if (issues.length === 0) pass('三語承諾用字、活動起始年份與 Organization JSON-LD 一致');
+  else for (const issue of issues) fail(issue);
+}
+
+// ---------- 8. Metadata／互動安全／語言導向 ----------
+console.log('');
+console.log('=== 8. Metadata、互動安全與語言導向回歸 ===');
+{
+  const issues = [];
+  const langLabel = { en: 'Language', 'zh-Hant': '語言', ja: '言語' };
+  const routerScripts = [];
+
+  for (const p of pages) {
+    const titles = [...p.html.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title>/gi)];
+    if (titles.length !== 1 || !decodeEntities(titles[0]?.[1] || '').trim()) {
+      issues.push(p.rel + ' — title 必須恰有一個且不可為空');
+    }
+
+    const meta = [...p.html.matchAll(/<meta\b[^>]*>/gi)].map((m) => attrsOfTag(m[0]));
+    function metaValues(kind, key) {
+      return meta.filter((a) => (a[kind] || '').toLowerCase() === key).map((a) => a.content || '');
+    }
+    const descriptions = metaValues('name', 'description');
+    if (descriptions.length !== 1 || !descriptions[0].trim()) {
+      issues.push(p.rel + ' — meta description 必須恰有一個且不可為空');
+    }
+    for (const [kind, key] of [
+      ['property', 'og:image'], ['property', 'og:image:alt'],
+      ['name', 'twitter:image'], ['name', 'twitter:image:alt'],
+    ]) {
+      const values = metaValues(kind, key);
+      if (values.length !== 1 || !values[0].trim()) issues.push(p.rel + ' — 缺少或重複 ' + key);
+    }
+
+    const tree = parseHTMLTree(p.html);
+    const ids = new Map();
+    let switchNode = null;
+    walk(tree, (node) => {
+      if (node.attrs?.id) ids.set(node.attrs.id, (ids.get(node.attrs.id) || 0) + 1);
+      if (hasClass(node, 'lang-switch')) switchNode = node;
+      if (node.tag === 'a' && (node.attrs?.target || '').toLowerCase() === '_blank') {
+        const rel = (node.attrs.rel || '').toLowerCase().split(/\s+/);
+        if (!rel.includes('noopener')) issues.push(p.rel + ' — target="_blank" 外連缺少 rel="noopener"');
+      }
+    });
+    for (const [id, count] of ids) {
+      if (count > 1) issues.push(p.rel + ' — 重複 id="' + id + '"（' + count + ' 次）');
+    }
+    if (!switchNode || switchNode.attrs['aria-label'] !== langLabel[p.expectedLang]) {
+      issues.push(p.rel + ' — 語言切換 aria-label 應為「' + langLabel[p.expectedLang] + '」');
+    }
+
+    const inlineRouters = [...p.html.matchAll(/<script(?![^>]*\bsrc\s*=)(?![^>]*\btype\s*=)[^>]*>([\s\S]*?)<\/script>/gi)]
+      .map((m) => m[1].trim()).filter(Boolean);
+    if (p.expectedLang === 'en') {
+      if (inlineRouters.length !== 1) issues.push(p.rel + ' — 英文入口語言導向 script 數量應為 1');
+      else routerScripts.push([p, inlineRouters[0]]);
+    } else if (inlineRouters.length !== 0) {
+      issues.push(p.rel + ' — 在地化頁不應含英文入口自動導向 script');
+    }
+  }
+
+  if (new Set(routerScripts.map(([, code]) => code)).size !== 1) {
+    issues.push('三個英文入口的語言導向 script 不一致');
+  }
+  for (const [p, code] of routerScripts) {
+    function routed(stored, languages) {
+      let destination = null;
+      const location = {
+        pathname: new URL(p.url).pathname,
+        search: '?source=check',
+        hash: '#proof',
+        replace(value) { destination = value; },
+      };
+      runInNewContext(code, {
+        localStorage: { getItem() { return stored; } },
+        navigator: { languages, language: languages[0] || 'en' },
+        location,
+      }, { timeout: 100 });
+      return destination;
+    }
+    const pathname = new URL(p.url).pathname;
+    if (routed(null, ['zh-TW']) !== '/zh' + pathname + '?source=check#proof') {
+      issues.push(p.rel + ' — zh 首訪導向未完整保留 pathname/search/hash');
+    }
+    if (routed(null, ['ja-JP']) !== '/ja' + pathname + '?source=check#proof') {
+      issues.push(p.rel + ' — ja 首訪導向未完整保留 pathname/search/hash');
+    }
+    if (routed('en', ['zh-TW']) !== null) issues.push(p.rel + ' — 明確選擇 en 後仍被自動導向');
+  }
+
+  const css = readText(stylesPath);
+  const mobileStart = css.search(/@media\s*\(max-width:\s*520px\)/i);
+  const mobileCss = mobileStart >= 0 ? css.slice(mobileStart) : '';
+  const brandMobile = mobileCss.match(/\.brand\s*\{([^}]*)\}/i)?.[1] || '';
+  const langMobile = mobileCss.match(/\.lang-switch\s+a\s*\{([^}]*)\}/i)?.[1] || '';
+  if (!/min-height:\s*44px/i.test(brandMobile)) {
+    issues.push('styles.css — 520px 窄屏品牌連結缺少 44px 最小高度');
+  }
+  if (!/min-width:\s*44px/i.test(langMobile) || !/min-height:\s*44px/i.test(langMobile)) {
+    issues.push('styles.css — 520px 窄屏語言切換缺少 44×44px 觸控區');
+  }
+
+  if (issues.length === 0) pass('九頁 metadata／ID／外連／i18n 與英文入口語言導向回歸完整');
+  else for (const issue of issues) fail(issue);
+}
+
+// ---------- 9. 安全標頭／CSP 相容性 ----------
+console.log('');
+console.log('=== 9. Vercel 安全標頭與嚴格 CSP 相容性 ===');
+{
+  const issues = [];
+  const vercelPath = path.join(ROOT, 'vercel.json');
+  const mainPath = path.join(ROOT, 'assets', 'main.js');
+  const renderPath = path.join(ROOT, 'assets', 'render.js');
+  const proofPath = path.join(ROOT, 'assets', 'proof.js');
+
+  const rawRouters = pages.filter((p) => p.expectedLang === 'en').flatMap((p) =>
+    [...p.html.matchAll(/<script(?![^>]*\bsrc\s*=)(?![^>]*\btype\s*=)[^>]*>([\s\S]*?)<\/script>/gi)]
+      .map((m) => m[1]).filter((code) => code.trim())
+  );
+  const rawRouterSet = new Set(rawRouters);
+  if (rawRouters.length !== 3 || rawRouterSet.size !== 1) {
+    issues.push('三個英文入口必須保有逐位元相同的單一 inline router，才能共用 CSP hash');
+  }
+  const routerBody = rawRouterSet.size === 1 ? [...rawRouterSet][0] : '';
+  const routerHash = routerBody
+    ? 'sha256-' + createHash('sha256').update(routerBody, 'utf8').digest('base64')
+    : 'sha256-invalid';
+  const expectedCsp = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'none'",
+    "script-src 'self' '" + routerHash + "'",
+    "script-src-attr 'none'",
+    "style-src 'self' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data:",
+    "connect-src 'none'",
+    "media-src 'none'",
+    "frame-src 'none'",
+    "worker-src 'none'",
+    "manifest-src 'none'",
+  ].join('; ');
+  const expectedHeaders = new Map([
+    ['content-security-policy', expectedCsp],
+    ['x-content-type-options', 'nosniff'],
+    ['referrer-policy', 'strict-origin-when-cross-origin'],
+    ['x-frame-options', 'DENY'],
+    ['permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()'],
+  ]);
+
+  if (!fs.existsSync(vercelPath)) {
+    issues.push('缺少 vercel.json，正式站無法取得版本控管的安全標頭');
+  } else {
+    try {
+      const config = JSON.parse(readText(vercelPath));
+      const rule = Array.isArray(config.headers)
+        ? config.headers.find((entry) => entry && entry.source === '/(.*)')
+        : null;
+      if (!rule || !Array.isArray(rule.headers)) {
+        issues.push('vercel.json — 缺少 source="/(.*)" 的全站 headers 規則');
+      } else {
+        const actual = new Map(rule.headers.map((header) => [
+          String(header?.key || '').toLowerCase(), String(header?.value || ''),
+        ]));
+        for (const [key, value] of expectedHeaders) {
+          if (actual.get(key) !== value) issues.push('vercel.json — ' + key + ' 與受測安全政策不一致');
+        }
+      }
+    } catch (error) {
+      issues.push('vercel.json — JSON 無法解析：' + error.message);
+    }
+  }
+
+  const main = readText(mainPath);
+  const render = readText(renderPath);
+  const proof = readText(proofPath);
+  const css = readText(stylesPath);
+  if (/speculationrules/i.test(main)) issues.push('assets/main.js — 嚴格 CSP 下不得動態注入 speculation rules');
+  if (/style\.cssText/.test(render) || /style\.cssText/.test(proof)) {
+    issues.push('render.js／proof.js — #still 路徑不得依賴 style.cssText');
+  }
+  if (!/\.proof-still-image\s*\{/.test(css)) {
+    issues.push('styles.css — 缺少 proof CSP-safe snapshot class');
+  }
+
+  if (issues.length === 0) pass('安全標頭、router hash、資源來源與 CSP-safe 快照路徑一致');
   else for (const issue of issues) fail(issue);
 }
 
