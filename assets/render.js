@@ -51,7 +51,6 @@
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'scene-toggle'; b.textContent = '▶';
     b.setAttribute('aria-label', canvas.getAttribute('data-l-play') || 'Play background animation');
-    b.setAttribute('aria-pressed', 'false');
     b.addEventListener('click', function () {
       b.remove(); reduce = false;
       document.documentElement.classList.remove('motion-paused');
@@ -447,7 +446,9 @@
     try { gl = canvas.getContext('webgl2', attrs); } catch (e) { gl = null; }
     if (gl) {
       var extF = gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float');
-      if (extF) { isGL2 = true; MODE = 'pipe'; return; }
+      // Inner pages only draw a starfield. Keep WebGL2 shader support, but use
+      // the direct path so they never allocate or composite an off-screen FBO.
+      if (extF) { isGL2 = true; MODE = INNER ? 'direct' : 'pipe'; return; }
       gl = null; freshCanvas(); // context type is claimed per-canvas — need a fresh node for WebGL1
     }
     var attrs1 = { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: STILL };
@@ -813,7 +814,6 @@
   var glowUV = [0.62, 0.5];
   function computeState(dt) {
     simT += dt;
-    if (introT < INTRO) introT += dt;
     var pe = easeOutCubic(Math.min(1, introT / INTRO));
 
     cmx += (tmx - cmx) * 0.04;
@@ -1061,17 +1061,25 @@
     // skip BEFORE consuming the timestamp: next rendered frame sees ~33ms dt
     // → throttle halves the frame rate, not the motion speed
     if (throttle && flip) return;
-    var dt = prevTs ? Math.min(0.05, (ts - prevTs) / 1000) : 0.016;
+    var hadPrev = !!prevTs;
+    var rawDt = hadPrev ? Math.max(0, (ts - prevTs) / 1000) : 0.016;
+    var dt = Math.min(0.05, rawDt);
     prevTs = ts;
+    // Visual simulation stays clamped for stability, but intro progress must
+    // follow real visible time. startLoop() clears prevTs after tab pauses, so
+    // time spent hidden never burns an intro the visitor did not see.
+    if (introT < INTRO) introT = Math.min(INTRO, introT + rawDt);
+    render(dt);
     if (!seen && introT >= INTRO) {
       // mark only once the intro has actually been rendered — a prerendered
       // page (frozen rAF) must not burn the once-per-session intro unseen
       seen = true;
       try { sessionStorage.setItem('linku_scene', '1'); } catch (e) { }
     }
-    render(dt);
-    if (!throttle && introT > 3) {
-      var fps = 1 / Math.max(0.001, dt);
+    // Measure real frame cadence from the beginning. The old post-intro gate
+    // exceeded INTRO itself, disabling tier-down entirely.
+    if (!throttle && hadPrev) {
+      var fps = 1 / Math.max(0.001, rawDt);
       fpsEMA += (fps - fpsEMA) * 0.05;
       if (fpsEMA < 40) {
         if (!lowSince) lowSince = ts;
@@ -1123,7 +1131,6 @@
     function sync() {
       b.textContent = running ? '■' : '▶';
       b.setAttribute('aria-label', running ? L[1] : L[0]);
-      b.setAttribute('aria-pressed', running ? 'true' : 'false');
     }
     sync();
     b.addEventListener('click', function () {
@@ -1186,7 +1193,7 @@
   // dev/introspection handle (used by verification tooling)
   window.__scene = {
     mode: MODE, get tier() { return tier; }, get fps() { return fpsEMA; },
-    get chapter() { return chapter; },
+    get chapter() { return chapter; }, get introT() { return introT; },
   };
 
   running = true;
@@ -1194,11 +1201,14 @@
   injectToggle();
   } // end boot()
 
-  if (reduce) {
+  // The homepage brand scene is deliberately static: keep the composed
+  // gimbal silhouette without paying the geometry, shader, or frame-loop
+  // cost. Reduced-motion inner pages use the same poster but may opt in.
+  if (HOME || reduce) {
     staticPoster();
     document.documentElement.classList.add('motion-paused');
     window.__scene = { mode: 'poster' };
-    if (!STILL) prebootToggle();
+    if (!HOME && !STILL) prebootToggle();
   } else if (typeof requestAnimationFrame === 'function') requestAnimationFrame(boot);
   else boot();
 })();

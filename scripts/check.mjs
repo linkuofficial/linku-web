@@ -886,7 +886,38 @@ console.log('=== 9. Vercel 安全標頭與嚴格 CSP 相容性 ===');
     issues.push('styles.css — 缺少 proof CSP-safe snapshot class');
   }
 
-  if (issues.length === 0) pass('安全標頭、router hash、資源來源與 CSP-safe 快照路徑一致');
+  if (issues.length === 0) pass('安全標頭、無 inline script 的 CSP、資源來源與 CSP-safe 快照路徑一致');
+  else for (const issue of issues) fail(issue);
+}
+
+// ---------- 10. Render runtime 治理與動畫控制語意 ----------
+console.log('');
+console.log('=== 10. Render runtime 治理與動畫控制語意 ===');
+{
+  const issues = [];
+  const render = readText(path.join(ROOT, 'assets', 'render.js'));
+  const proof = readText(path.join(ROOT, 'assets', 'proof.js'));
+
+  if (!/MODE\s*=\s*INNER\s*\?\s*['"]direct['"]\s*:\s*['"]pipe['"]/.test(render)) {
+    issues.push('assets/render.js — 內頁 WebGL2 未固定走 direct starfield path');
+  }
+  if (!/if\s*\(HOME\s*\|\|\s*reduce\)\s*\{[\s\S]*?staticPoster\(\);[\s\S]*?if\s*\(!HOME\s*&&\s*!STILL\)\s*prebootToggle\(\);/.test(render)) {
+    issues.push('assets/render.js — 首頁未固定走無播放控制的 static poster path');
+  }
+  if (!/introT\s*=\s*Math\.min\(INTRO,\s*introT\s*\+\s*rawDt\)/.test(render)) {
+    issues.push('assets/render.js — intro 未使用 unclamped visible elapsed time');
+  }
+  if (/introT\s*\+=\s*dt/.test(render) || /introT\s*>\s*3/.test(render)) {
+    issues.push('assets/render.js — intro 仍依賴 clamped dt 或不可達的治理門檻');
+  }
+  if (!/var\s+fps\s*=\s*1\s*\/\s*Math\.max\(0\.001,\s*rawDt\)/.test(render)) {
+    issues.push('assets/render.js — FPS 治理未量測真實 frame cadence');
+  }
+  if (/aria-pressed/.test(render) || /aria-pressed/.test(proof)) {
+    issues.push('render.js／proof.js — 動態 Play/Pause action label 不得混用 aria-pressed');
+  }
+
+  if (issues.length === 0) pass('首頁靜態品牌場景、內頁直繪、runtime 治理與 Play/Pause 語意一致');
   else for (const issue of issues) fail(issue);
 }
 

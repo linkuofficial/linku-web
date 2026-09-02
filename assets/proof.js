@@ -374,7 +374,6 @@ if (typeof module !== 'undefined' && module.exports) {
     if (!btn) return;
     btn.textContent = running ? (btn.getAttribute('data-pause') || 'Pause')
       : (btn.getAttribute('data-play') || 'Play');
-    btn.setAttribute('aria-pressed', running ? 'true' : 'false');
   }
   if (btn && !still) {
     syncButton();
