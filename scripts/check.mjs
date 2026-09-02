@@ -35,8 +35,8 @@
  *  6. 漸進增強與語義：每頁恰有一個 main、skip link、不跳級的標題；
  *     reveal 與自訂游標只在 JS／游標確實啟動後才隱藏原生內容／游標
  *  7. 對外可信度與 Organization JSON-LD 的跨語一致性
- *  8. Metadata／互動安全／i18n 細節與英文入口語言導向回歸
- *  9. Vercel 安全標頭、CSP router hash 與嚴格 CSP 相容性
+ *  8. Metadata／互動安全／i18n 細節與明示語言 URL 回歸
+ *  9. Vercel 安全標頭與嚴格 CSP 相容性
  *
  * 檢查範圍與已知限制（改動站台結構前先讀）：
  *  - 「CJK 字元」定義：漢字（U+4E00–9FFF、擴展A U+3400–4DBF、相容區 U+F900–FAFF）、
@@ -54,9 +54,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
-import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { runInNewContext } from 'node:vm';
 import { brotliCompressSync, constants as zlibConstants } from 'node:zlib';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -144,6 +142,22 @@ function attrsOfTag(tagStr) {
     attrs[m[1].toLowerCase()] = m[2] ?? m[3] ?? m[4] ?? '';
   }
   return attrs;
+}
+
+// Inline scripts are forbidden by the deployed CSP unless they are inert
+// structured data. Whitelist only JSON-LD: `type="module"`, classic JavaScript
+// MIME types, import maps, empty/unknown types, and future executable types must
+// all fail closed instead of being skipped merely because `type` is present.
+function inlineNonJsonScripts(html) {
+  const scripts = [];
+  for (const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)) {
+    const attrs = attrsOfTag('<script' + match[1] + '>');
+    if (attrs.src) continue;
+    const type = String(attrs.type || '').trim().toLowerCase().split(';', 1)[0].trim();
+    if (type === 'application/ld+json') continue;
+    scripts.push({ type: type || '(classic)', code: match[2] });
+  }
+  return scripts;
 }
 
 function parseHead(html) {
@@ -701,13 +715,12 @@ console.log('=== 7. 對外可信度與結構化資料一致性 ===');
   else for (const issue of issues) fail(issue);
 }
 
-// ---------- 8. Metadata／互動安全／語言導向 ----------
+// ---------- 8. Metadata／互動安全／明示語言 URL ----------
 console.log('');
-console.log('=== 8. Metadata、互動安全與語言導向回歸 ===');
+console.log('=== 8. Metadata、互動安全與明示語言 URL 回歸 ===');
 {
   const issues = [];
   const langLabel = { en: 'Language', 'zh-Hant': '語言', ja: '言語' };
-  const routerScripts = [];
 
   for (const p of pages) {
     const titles = [...p.html.matchAll(/<title\b[^>]*>([\s\S]*?)<\/title>/gi)];
@@ -748,44 +761,69 @@ console.log('=== 8. Metadata、互動安全與語言導向回歸 ===');
     if (!switchNode || switchNode.attrs['aria-label'] !== langLabel[p.expectedLang]) {
       issues.push(p.rel + ' — 語言切換 aria-label 應為「' + langLabel[p.expectedLang] + '」');
     }
+    if (switchNode) {
+      const switchLinks = [];
+      walk(switchNode, (node) => {
+        if (node.tag === 'a' && node.attrs?.hreflang) switchLinks.push(node);
+      });
+      const expectedSwitch = new Map();
+      for (const lang of ['en', 'zh-Hant', 'ja']) {
+        const alternate = p.alternates.get(lang);
+        if (alternate) expectedSwitch.set(lang, new URL(alternate).pathname);
+      }
+      if (switchLinks.length !== expectedSwitch.size) {
+        issues.push(p.rel + ' — 語言切換器必須恰有 en／zh-Hant／ja 三個連結');
+      }
+      for (const [lang, href] of expectedSwitch) {
+        const matches = switchLinks.filter((node) => node.attrs.hreflang === lang);
+        if (matches.length !== 1 || decodeEntities(matches[0]?.attrs.href || '') !== href) {
+          issues.push(p.rel + ' — 語言切換 ' + lang + ' 必須指向同頁型的 ' + href);
+          continue;
+        }
+        const isCurrent = lang === p.expectedLang;
+        const hasCurrent = matches[0].attrs['aria-current'] === 'page';
+        if (hasCurrent !== isCurrent || hasClass(matches[0], 'active') !== isCurrent) {
+          issues.push(p.rel + ' — 語言切換 ' + lang + ' 的目前頁狀態不一致');
+        }
+      }
+    }
 
-    const inlineRouters = [...p.html.matchAll(/<script(?![^>]*\bsrc\s*=)(?![^>]*\btype\s*=)[^>]*>([\s\S]*?)<\/script>/gi)]
-      .map((m) => m[1].trim()).filter(Boolean);
-    if (p.expectedLang === 'en') {
-      if (inlineRouters.length !== 1) issues.push(p.rel + ' — 英文入口語言導向 script 數量應為 1');
-      else routerScripts.push([p, inlineRouters[0]]);
-    } else if (inlineRouters.length !== 0) {
-      issues.push(p.rel + ' — 在地化頁不應含英文入口自動導向 script');
+    const inlineScripts = inlineNonJsonScripts(p.html);
+    if (inlineScripts.length !== 0) {
+      issues.push(p.rel + ' — CSP 僅允許外部 script 與 inline JSON-LD；發現 ' +
+        inlineScripts.map((script) => script.type).join('、'));
     }
   }
 
-  if (new Set(routerScripts.map(([, code]) => code)).size !== 1) {
-    issues.push('三個英文入口的語言導向 script 不一致');
+  // Mutation controls: keep the detector fail-closed for typed executable
+  // scripts while continuing to permit the site's JSON-LD data blocks.
+  for (const fixture of [
+    ['classic', '<script>location.replace("/zh/")<\/script>', 1],
+    ['module', '<script type="module">location.replace("/zh/")<\/script>', 1],
+    ['JavaScript MIME', '<script type="text/javascript">location.replace("/zh/")<\/script>', 1],
+    ['import map', '<script type="importmap">{}</script>', 1],
+    ['JSON-LD', '<script type="application/ld+json">{}</script>', 0],
+    ['external', '<script type="module" src="/assets/main.js"></script>', 0],
+  ]) {
+    const actual = inlineNonJsonScripts(fixture[1]).length;
+    if (actual !== fixture[2]) issues.push('inline script detector mutation control 失效：' + fixture[0]);
   }
-  for (const [p, code] of routerScripts) {
-    function routed(stored, languages) {
-      let destination = null;
-      const location = {
-        pathname: new URL(p.url).pathname,
-        search: '?source=check',
-        hash: '#proof',
-        replace(value) { destination = value; },
-      };
-      runInNewContext(code, {
-        localStorage: { getItem() { return stored; } },
-        navigator: { languages, language: languages[0] || 'en' },
-        location,
-      }, { timeout: 100 });
-      return destination;
+
+  const runtimeSources = pages.map((p) => [p.rel, p.html]);
+  const assetsDir = path.join(ROOT, 'assets');
+  for (const name of fs.readdirSync(assetsDir).filter((name) => name.endsWith('.js')).sort()) {
+    runtimeSources.push(['assets/' + name, readText(path.join(assetsDir, name))]);
+  }
+  const legacyLanguageSignals = [
+    ['linku_lang', /\blinku_lang\b/],
+    ['navigator.languages', /\bnavigator\.languages\b/],
+    ['navigator.language', /\bnavigator\.language\b/],
+    ['location.replace()', /\blocation\.replace\s*\(/],
+  ];
+  for (const [rel, source] of runtimeSources) {
+    for (const [label, pattern] of legacyLanguageSignals) {
+      if (pattern.test(source)) issues.push(rel + ' — 明示語言 URL 不得恢復舊導向訊號：' + label);
     }
-    const pathname = new URL(p.url).pathname;
-    if (routed(null, ['zh-TW']) !== '/zh' + pathname + '?source=check#proof') {
-      issues.push(p.rel + ' — zh 首訪導向未完整保留 pathname/search/hash');
-    }
-    if (routed(null, ['ja-JP']) !== '/ja' + pathname + '?source=check#proof') {
-      issues.push(p.rel + ' — ja 首訪導向未完整保留 pathname/search/hash');
-    }
-    if (routed('en', ['zh-TW']) !== null) issues.push(p.rel + ' — 明確選擇 en 後仍被自動導向');
   }
 
   const css = readText(stylesPath);
@@ -800,7 +838,7 @@ console.log('=== 8. Metadata、互動安全與語言導向回歸 ===');
     issues.push('styles.css — 520px 窄屏語言切換缺少 44×44px 觸控區');
   }
 
-  if (issues.length === 0) pass('九頁 metadata／ID／外連／i18n 與英文入口語言導向回歸完整');
+  if (issues.length === 0) pass('九頁 metadata／ID／外連／i18n、語言切換與明示 URL 行為完整');
   else for (const issue of issues) fail(issue);
 }
 
@@ -814,25 +852,13 @@ console.log('=== 9. Vercel 安全標頭與嚴格 CSP 相容性 ===');
   const renderPath = path.join(ROOT, 'assets', 'render.js');
   const proofPath = path.join(ROOT, 'assets', 'proof.js');
 
-  const rawRouters = pages.filter((p) => p.expectedLang === 'en').flatMap((p) =>
-    [...p.html.matchAll(/<script(?![^>]*\bsrc\s*=)(?![^>]*\btype\s*=)[^>]*>([\s\S]*?)<\/script>/gi)]
-      .map((m) => m[1]).filter((code) => code.trim())
-  );
-  const rawRouterSet = new Set(rawRouters);
-  if (rawRouters.length !== 3 || rawRouterSet.size !== 1) {
-    issues.push('三個英文入口必須保有逐位元相同的單一 inline router，才能共用 CSP hash');
-  }
-  const routerBody = rawRouterSet.size === 1 ? [...rawRouterSet][0] : '';
-  const routerHash = routerBody
-    ? 'sha256-' + createHash('sha256').update(routerBody, 'utf8').digest('base64')
-    : 'sha256-invalid';
   const expectedCsp = [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'none'",
-    "script-src 'self' '" + routerHash + "'",
+    "script-src 'self'",
     "script-src-attr 'none'",
     "style-src 'self' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
@@ -850,6 +876,14 @@ console.log('=== 9. Vercel 安全標頭與嚴格 CSP 相容性 ===');
     ['x-frame-options', 'DENY'],
     ['permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()'],
   ]);
+
+  for (const p of pages) {
+    const conflicts = inlineNonJsonScripts(p.html);
+    if (conflicts.length) {
+      issues.push(p.rel + ' — CSP 無 inline allowance，但頁面含 inline script：' +
+        conflicts.map((script) => script.type).join('、'));
+    }
+  }
 
   if (!fs.existsSync(vercelPath)) {
     issues.push('缺少 vercel.json，正式站無法取得版本控管的安全標頭');

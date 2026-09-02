@@ -5,9 +5,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- First-visit language routing: send visitors to their language; an explicit choice (stored) always wins. en-pages only, so /zh/ and /ja/ stay crawlable. -->
-  <script>(function(){try{var K='linku_lang',s=localStorage.getItem(K),t=s;if(!t){var L=navigator.languages||[navigator.language||'en'];for(var i=0;i<L.length;i++){var l=(L[i]||'').toLowerCase();if(l.indexOf('zh')===0){t='zh';break}if(l.indexOf('ja')===0){t='ja';break}if(l.indexOf('en')===0){t='en';break}}}if(!t||t==='en')return;location.replace('/'+t+location.pathname+location.search+location.hash)}catch(e){}})();</script>
-
   <!-- Favicon -->
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
 
