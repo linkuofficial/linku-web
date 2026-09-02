@@ -1,5 +1,5 @@
 # TASK: remove-home-static-poster
-狀態: in-progress
+狀態: done
 建立: 2026-09-02 ｜ 實作層: Codex
 Repo: web
 Base: a81f08c
@@ -15,7 +15,7 @@ Required verification: `node scripts/check.mjs` 全 PASS ＋ proof tests ＋ JS 
 - [x] 三語首頁不呼叫 `staticPoster()`、不建立 WebGL context、沒有 `.scene-toggle`，且 `window.__scene.mode` 為 `blank`。
 - [x] About／Technology 的 direct starfield 與 reduced-motion poster／Play 行為不變；Technology proof 不受影響。
 - [x] `node scripts/check.mjs`、proof tests、全部 JavaScript syntax 與 `git diff --check` 通過。
-- [ ] Preview 首頁實看無簡化 gimbal／星點 SVG，內容可讀、無新增 overflow 或 console error。
+- [x] Preview 首頁實看無簡化 gimbal／星點 SVG，內容可讀、無新增 overflow 或 console error。
 
 ## 邊界（不要動的東西）
 
@@ -29,6 +29,6 @@ Required verification: `node scripts/check.mjs` 全 PASS ＋ proof tests ＋ JS 
 ## HANDOFF（實作層完成或卡住後填）
 
 - Branch: codex/optimization-closeout
-- Summary: pending verification
-- Verification: pending
-- Remaining risks: pending
+- Summary: 首頁移除簡化 SVG poster，維持無 WebGL、無背景控制的深色底；內頁 reduced-motion poster 與動畫行為不變。
+- Verification: `node scripts/check.mjs` 27 PASS；兩組 proof tests PASS；全部 JavaScript syntax 與 `git diff --check` PASS。Preview 與 Production 的英文首頁均確認 canvas background 為 `none`、無 toggle、無 overflow 或 console error。
+- Remaining risks: 新首頁視覺方向仍待凜空另立任務決定；未新增任何替代品牌圖。
