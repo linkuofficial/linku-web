@@ -935,8 +935,8 @@ console.log('=== 10. Render runtime 治理與動畫控制語意 ===');
   if (!/MODE\s*=\s*INNER\s*\?\s*['"]direct['"]\s*:\s*['"]pipe['"]/.test(render)) {
     issues.push('assets/render.js — 內頁 WebGL2 未固定走 direct starfield path');
   }
-  if (!/if\s*\(HOME\s*\|\|\s*reduce\)\s*\{[\s\S]*?staticPoster\(\);[\s\S]*?if\s*\(!HOME\s*&&\s*!STILL\)\s*prebootToggle\(\);/.test(render)) {
-    issues.push('assets/render.js — 首頁未固定走無播放控制的 static poster path');
+  if (!/if\s*\(HOME\)\s*\{[\s\S]*?mode:\s*['"]blank['"][\s\S]*?\}\s*else\s+if\s*\(reduce\)\s*\{[\s\S]*?staticPoster\(\);[\s\S]*?if\s*\(!STILL\)\s*prebootToggle\(\);/.test(render)) {
+    issues.push('assets/render.js — 首頁必須保持無品牌插圖的空白背景；僅內頁 reduced-motion 可使用 poster');
   }
   if (!/introT\s*=\s*Math\.min\(INTRO,\s*introT\s*\+\s*rawDt\)/.test(render)) {
     issues.push('assets/render.js — intro 未使用 unclamped visible elapsed time');
@@ -951,7 +951,7 @@ console.log('=== 10. Render runtime 治理與動畫控制語意 ===');
     issues.push('render.js／proof.js — 動態 Play/Pause action label 不得混用 aria-pressed');
   }
 
-  if (issues.length === 0) pass('首頁靜態品牌場景、內頁直繪、runtime 治理與 Play/Pause 語意一致');
+  if (issues.length === 0) pass('首頁空白背景、內頁直繪、runtime 治理與 Play/Pause 語意一致');
   else for (const issue of issues) fail(issue);
 }
 

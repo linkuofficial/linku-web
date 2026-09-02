@@ -1201,14 +1201,18 @@
   injectToggle();
   } // end boot()
 
-  // The homepage brand scene is deliberately static: keep the composed
-  // gimbal silhouette without paying the geometry, shader, or frame-loop
-  // cost. Reduced-motion inner pages use the same poster but may opt in.
-  if (HOME || reduce) {
+  // The homepage intentionally has no scene until a new art direction is
+  // approved. Keep its fixed canvas empty rather than substituting a
+  // simplified gimbal illustration. Inner-page reduced-motion still uses a
+  // non-animated poster and may opt into the full renderer.
+  if (HOME) {
+    document.documentElement.classList.add('motion-paused');
+    window.__scene = { mode: 'blank' };
+  } else if (reduce) {
     staticPoster();
     document.documentElement.classList.add('motion-paused');
     window.__scene = { mode: 'poster' };
-    if (!HOME && !STILL) prebootToggle();
+    if (!STILL) prebootToggle();
   } else if (typeof requestAnimationFrame === 'function') requestAnimationFrame(boot);
   else boot();
 })();
