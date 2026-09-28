@@ -1628,3 +1628,75 @@ html[lang="ja"] .more-link {
     margin-top: 20px;
   }
 }
+
+/* Respect reduced motion for document scrolling as well as animation. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* Paused simulation inputs do not queue invisible changes. */
+.proof-control:disabled {
+  color: var(--muted-dim);
+  border-color: var(--line);
+  background: none;
+  cursor: default;
+}
+.proof-paused-note {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+}
+
+/* Immediate press feedback uses the existing brand palette. */
+.brand:active,
+.nav-links a:active,
+.lang-switch a:active,
+.more-link:active,
+.contact-mail:active,
+.about-facts a:active {
+  color: var(--amber);
+  transition: none;
+}
+.scene-toggle:active {
+  color: var(--amber);
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 14%, var(--bg));
+  transition: none;
+}
+
+/* Touch targets also apply to tablets and devices with mixed inputs. */
+@media (any-pointer: coarse) {
+  .brand,
+  .nav-links a,
+  .lang-switch a {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .lang-switch a { justify-content: center; }
+  nav, .nav-right, .nav-links { flex-wrap: wrap; }
+  nav { gap: 8px 20px; }
+  .nav-right { justify-content: flex-end; }
+}
+
+/* Improve dense simulation text without changing the site typography. */
+.proof-hint,
+.proof-hint-touch,
+html[lang="zh-Hant"] .proof-hint,
+html[lang="ja"] .proof-hint,
+html[lang="zh-Hant"] .proof-hint-touch,
+html[lang="ja"] .proof-hint-touch {
+  font-size: 0.8125rem;
+  line-height: 1.9;
+  letter-spacing: 0.08em;
+}
+.proof-spec {
+  font-size: 0.8125rem;
+  line-height: 2;
+  overflow-wrap: anywhere;
+}
+.proof-cap { font-size: 0.75rem; }
+.proof-summary { font-size: 0.8125rem; }

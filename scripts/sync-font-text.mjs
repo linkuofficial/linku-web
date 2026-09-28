@@ -27,10 +27,11 @@ function decodeEntities(text) {
 
 function visibleBodyText(html) {
   const body = html.match(/<body\b[^>]*>([\s\S]*?)<\/body>/i)?.[1] ?? '';
+  const dynamic = [...body.matchAll(/\bdata-(?:play|pause)="([^"]*)"/g)].map(m => m[1]).join(' ');
   return decodeEntities(body
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, '')
-    .replace(/<[^>]+>/g, ' '))
+    .replace(/<[^>]+>/g, ' ') + ' ' + dynamic)
     .replace(/[ \t\r\n\f]+/g, ' ')
     .trim();
 }

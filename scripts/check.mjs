@@ -512,10 +512,18 @@ if (!fs.existsSync(stylesPath)) {
       }
     }
 
+    // These attributes become visible button text after the initial paint.
+    const dynamic = [...p.html.matchAll(/\bdata-(?:play|pause)="([^"]*)"/g)]
+      .map(m => decodeEntities(m[1])).join(' ');
+    for (const ch of dynamic) {
+      if (!isCJK(ch)) continue;
+      if (!required.has(ch)) required.set(ch, new Set());
+      required.get(ch).add('dynamic play/pause label');
+    }
     const missing = [...required.entries()].filter(([ch]) => !subsetChars.has(ch));
     let body = null;
     walk(tree, (node) => { if (!body && node.tag === 'body') body = node; });
-    const visibleBodyCJK = new Set(body ? [...textOf(body)].filter(isCJK) : []);
+    const visibleBodyCJK = new Set([...(body ? textOf(body) : ''), ...dynamic].filter(isCJK));
     const stale = [...subsetChars].filter((ch) => isCJK(ch) && !visibleBodyCJK.has(ch));
     if (missing.length === 0 && stale.length === 0) {
       pass(p.rel + ' — CJK 字型子集涵蓋必要字元，且無過期 CJK 字元');

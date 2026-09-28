@@ -95,7 +95,7 @@
 
 <body>
   <a class="skip-link" href="#top">Skip to content</a>
-  <canvas id="particles" aria-hidden="true" data-l-play="Play background animation" data-l-pause="Pause background animation"></canvas>
+  <canvas id="particles" aria-hidden="true" data-l-play="Play background and simulation" data-l-pause="Pause background and simulation"></canvas>
   <div class="cursor-ring" aria-hidden="true"></div>
   <div class="cursor-dot" aria-hidden="true"></div>
 
@@ -168,7 +168,8 @@
       <div class="proof-controls" aria-label="Simulation controls">
         <button id="proof-target" class="proof-control" type="button">New target</button>
         <button id="proof-disturb" class="proof-control" type="button">Disturb</button>
-        <button id="proof-play" class="proof-control" type="button" data-play="Play animation" data-pause="Pause">Pause</button>
+        <button id="proof-play" class="proof-control" type="button" data-play="Play simulation" data-pause="Pause simulation">Pause simulation</button>
+        <p id="proof-paused-note" class="proof-paused-note" role="status" hidden>Simulation paused. Play to change the target or apply a disturbance.</p>
       </div>
       <details class="proof-details">
         <summary class="proof-summary">For engineers: model &amp; parameters</summary>

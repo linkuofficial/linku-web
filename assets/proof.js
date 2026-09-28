@@ -295,6 +295,7 @@ if (typeof module !== 'undefined' && module.exports) {
   // both sides equally. Kept as separate verbs so touch can bind them to
   // separate gestures (a drag-to-aim on a phone just fights page scrolling).
   function aimAt(e) {
+    if (!running) return;
     var r = cv.getBoundingClientRect();
     var x = e.clientX - r.left, y = e.clientY - r.top;
     var cx = (x < Wc / 2) ? CX[0] : CX[1];
@@ -303,10 +304,12 @@ if (typeof module !== 'undefined' && module.exports) {
     stats.targetChanged(simT, target);
   }
   function disturb() {
+    if (!running) return;
     dist = (random() < 0.5 ? -1 : 1) * 30;
     markJump(simT);
   }
   function newTarget() {
+    if (!running) return;
     target = wrap(target + (random() < 0.5 ? -1 : 1) * (0.9 + random() * 1.3));
     pointerT = simT;
     markJump(simT);
@@ -371,12 +374,16 @@ if (typeof module !== 'undefined' && module.exports) {
 
   var btn = document.getElementById('proof-play');
   function syncButton() {
+    if (tb) tb.disabled = !running;
+    if (db) db.disabled = !running;
+    var note = document.getElementById('proof-paused-note');
+    if (note) note.hidden = running;
     if (!btn) return;
     btn.textContent = running ? (btn.getAttribute('data-pause') || 'Pause')
       : (btn.getAttribute('data-play') || 'Play');
   }
+  syncButton();
   if (btn && !still) {
-    syncButton();
     btn.addEventListener('click', function () {
       running = !running;
       syncButton();

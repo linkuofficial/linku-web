@@ -51,6 +51,7 @@
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'scene-toggle'; b.textContent = '▶';
     b.setAttribute('aria-label', canvas.getAttribute('data-l-play') || 'Play background animation');
+    b.title = b.getAttribute('aria-label');
     b.addEventListener('click', function () {
       b.remove(); reduce = false;
       document.documentElement.classList.remove('motion-paused');
@@ -1131,6 +1132,7 @@
     function sync() {
       b.textContent = running ? '■' : '▶';
       b.setAttribute('aria-label', running ? L[1] : L[0]);
+      b.title = b.getAttribute('aria-label');
     }
     sync();
     b.addEventListener('click', function () {

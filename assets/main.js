@@ -16,25 +16,61 @@ window.__tweaks = {
   const dot = document.querySelector('.cursor-dot');
   const ring = document.querySelector('.cursor-ring');
   if (!dot || !ring) return;
-  if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
-  document.documentElement.classList.add('cursor-ready');
+  const fine = matchMedia('(hover: hover) and (pointer: fine)');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let mx = innerWidth / 2, my = innerHeight / 2;
-  let rx = mx, ry = my;
+  let rx = mx, ry = my, raf = null;
+  let last = null, inside = true;
+  function enabled() {
+    return fine.matches && !document.hidden && !reduced.matches && inside;
+  }
+  function stop() {
+    if (raf !== null) cancelAnimationFrame(raf);
+    raf = null;
+    last = null;
+  }
+  function start() {
+    if (raf === null && enabled()) {
+      if (last === null) last = performance.now();
+      raf = requestAnimationFrame(loop);
+    }
+  }
+  function sync() {
+    document.documentElement.classList.toggle('cursor-ready', enabled());
+    if (enabled()) start(); else stop();
+  }
+  function loop(time) {
+    raf = null;
+    if (!enabled()) return;
+    // Preserve the 60 Hz feel while keeping the same response at higher refresh rates.
+    const dt = last === null ? 1000 / 60 : Math.min(100, Math.max(0, time - last));
+    const alpha = 1 - Math.pow(1 - 0.16, dt / (1000 / 60));
+    last = time;
+    rx += (mx - rx) * alpha;
+    ry += (my - ry) * alpha;
+    const settled = Math.abs(mx - rx) < 0.1 && Math.abs(my - ry) < 0.1;
+    if (settled) { rx = mx; ry = my; last = null; }
+    ring.style.transform = 'translate(' + rx + 'px, ' + ry + 'px) translate(-50%, -50%)';
+    if (!settled) start();
+  }
   addEventListener('mousemove', (e) => {
     mx = e.clientX; my = e.clientY;
-    dot.style.transform = `translate(${mx}px, ${my}px) translate(-50%, -50%)`;
+    inside = true;
+    dot.style.transform = 'translate(' + mx + 'px, ' + my + 'px) translate(-50%, -50%)';
+    sync();
+  }, { passive: true });
+  fine.addEventListener('change', sync);
+  reduced.addEventListener('change', sync);
+  document.addEventListener('visibilitychange', sync);
+  document.documentElement.addEventListener('mouseleave', () => {
+    inside = false;
+    sync();
   });
-  function loop() {
-    rx += (mx - rx) * 0.16;
-    ry += (my - ry) * 0.16;
-    ring.style.transform = `translate(${rx}px, ${ry}px) translate(-50%, -50%)`;
-    requestAnimationFrame(loop);
-  }
-  loop();
   document.querySelectorAll('a, button, [data-cursor="hover"]').forEach((el) => {
     el.addEventListener('mouseenter', () => ring.classList.add('hover'));
     el.addEventListener('mouseleave', () => ring.classList.remove('hover'));
   });
+  sync();
 })();
 
 /* ---------- Magnetic interactive marks ---------- */
