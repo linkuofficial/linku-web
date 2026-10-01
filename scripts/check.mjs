@@ -37,6 +37,8 @@
  *  7. 對外可信度與 Organization JSON-LD 的跨語一致性
  *  8. Metadata／互動安全／i18n 細節與明示語言 URL 回歸
  *  9. Vercel 安全標頭與嚴格 CSP 相容性
+ * 10. Render runtime 治理與動畫控制語意
+ * 11. 跨頁 View Transition 的 parser gate（vt-gate.js 緊接 styles.css、同步載入）
  *
  * 檢查範圍與已知限制（改動站台結構前先讀）：
  *  - 「CJK 字元」定義：漢字（U+4E00–9FFF、擴展A U+3400–4DBF、相容區 U+F900–FAFF）、
@@ -552,6 +554,7 @@ const ASSET_BUDGETS = [
   { rel: 'assets/proof.js',  maxBytes: 7 * 1024, optional: false },
   { rel: 'assets/main.js',   maxBytes: 4 * 1024, optional: false },
   { rel: 'assets/styles.css', maxBytes: 10 * 1024, optional: false },
+  { rel: 'assets/vt-gate.js', maxBytes: 1024, optional: false },
 ];
 
 // script src 抽取共用 helper：走 attrsOfTag（與 <link> 解析同一條路），
@@ -960,6 +963,36 @@ console.log('=== 10. Render runtime 治理與動畫控制語意 ===');
   }
 
   if (issues.length === 0) pass('首頁空白背景、內頁直繪、runtime 治理與 Play/Pause 語意一致');
+  else for (const issue of issues) fail(issue);
+}
+
+// ---------- 11. 跨頁 View Transition 的 parser gate ----------
+// Chromium 在 parser 插入 <body> 時決定新頁的 @view-transition opt-in；styles.css
+// 尚未載入（正式站 max-age=0，每次導覽都要 revalidate）就會整個轉場被跳過並丟
+// InvalidStateError。<head> 內緊接 styles.css 的同步外部 script 會等樣式表，
+// 所以它必須存在、位置正確、且不可 async／defer／module。
+console.log('');
+console.log('=== 11. 跨頁 View Transition parser gate ===');
+{
+  const issues = [];
+  const css = readText(stylesPath);
+  const optsIn = /@view-transition\s*\{[^}]*navigation\s*:\s*auto/.test(css);
+  for (const p of pages) {
+    const head = p.html.split(/<body\b/i)[0];
+    const tags = [...head.matchAll(/<(link|script)\b[^>]*>/gi)].map((m) => ({
+      tag: m[1].toLowerCase(), attrs: attrsOfTag(m[0]), raw: m[0],
+    }));
+    const cssAt = tags.findIndex((t) => t.tag === 'link' && t.attrs.href === '/assets/styles.css');
+    const gateAt = tags.findIndex((t) => t.tag === 'script' && t.attrs.src === '/assets/vt-gate.js');
+    if (!optsIn) continue; // 沒有 opt-in 就不需要 gate
+    if (gateAt === -1) { issues.push(p.rel + ' — <head> 缺少 /assets/vt-gate.js'); continue; }
+    if (cssAt === -1 || gateAt !== cssAt + 1) issues.push(p.rel + ' — vt-gate.js 必須緊接在 styles.css 的 <link> 之後');
+    const gate = tags[gateAt];
+    if (/\b(async|defer)\b/i.test(gate.raw.replace(/"[^"]*"/g, '')) || 'type' in gate.attrs) {
+      issues.push(p.rel + ' — vt-gate.js 必須是同步 classic script（不可 async／defer／type）');
+    }
+  }
+  if (issues.length === 0) pass('九頁的 View Transition parser gate 位置與載入方式正確');
   else for (const issue of issues) fail(issue);
 }
 

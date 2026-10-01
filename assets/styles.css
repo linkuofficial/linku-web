@@ -650,7 +650,7 @@ html[lang="en"] .pillar-title {
 
 .about-facts > div {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: 150px minmax(0, 1fr);
   gap: 24px;
   align-items: baseline;
   padding: 18px 0;
@@ -685,6 +685,19 @@ html[lang="en"] .pillar-title {
 
 .about-facts a:hover {
   border-color: var(--cream);
+}
+
+/* 320px-class screens: the fixed 150px label column left the value column
+   narrower than its longest unbreakable token (the e-mail address). */
+@media (max-width: 340px) {
+  .about-facts > div {
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .about-facts dd {
+    overflow-wrap: anywhere;
+  }
 }
 
 /* About: narrative (left) + facts (right) as two columns on wider screens */
@@ -1109,11 +1122,13 @@ html[lang="en"] .pillar-title {
 @media (hover: hover) and (pointer: fine) {
 
   .pillar,
+  .work-item,
   .tech-item {
     position: relative;
   }
 
   .pillar::after,
+  .work-item::after,
   .tech-item::after {
     content: '';
     position: absolute;
@@ -1126,6 +1141,7 @@ html[lang="en"] .pillar-title {
   }
 
   .pillar:hover::after,
+  .work-item:hover::after,
   .tech-item:hover::after {
     opacity: 1;
   }
@@ -1157,6 +1173,68 @@ html[lang="en"] .pillar-title {
   color: rgba(255, 255, 255, var(--caption-opacity));
   text-transform: none;
   line-height: 1.7;
+}
+
+.pillar-desc,
+.work-desc {
+  margin-top: 16px;
+  font-family: var(--body);
+  font-weight: 300;
+  font-size: clamp(0.9rem, 1.15vw, 1rem);
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+  color: rgba(232, 230, 224, 0.62);
+  max-width: 52ch;
+  text-wrap: pretty;
+}
+
+/* ---------- Work (home) ----------
+   Same row grid as the pillars so both lists share one left edge. */
+.work {
+  padding-top: clamp(100px, 14vh, 180px);
+  padding-bottom: clamp(100px, 14vh, 180px);
+  border-top: 1px solid var(--line);
+}
+
+.work-list {
+  margin-top: clamp(48px, 8vh, 96px);
+}
+
+.work-item {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: clamp(20px, 5vw, 80px);
+  align-items: baseline;
+  border-top: 1px solid var(--line);
+  padding: clamp(36px, 5vw, 64px) 0;
+}
+
+.work-item:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.work-kind {
+  font-family: var(--body);
+  font-weight: 400;
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.work-title {
+  margin-top: 16px;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(2rem, 3.6vw, 3rem);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  color: var(--cream);
+  text-wrap: balance;
+}
+
+.work-item .more-link {
+  margin-top: 26px;
 }
 
 /* ---------- Contact ---------- */
@@ -1314,6 +1392,8 @@ html.motion-paused .hero-title .l3 {
   .hero-sub,
   .statement-fact,
   .pillar-tag,
+  .pillar-desc,
+  .work-desc,
   .contact-note,
   .tech-desc,
   .tech-hero-sub,
@@ -1337,7 +1417,8 @@ html.motion-paused .hero-title .l3 {
     letter-spacing: 0.15em;
   }
 
-  .pillar {
+  .pillar,
+  .work-item {
     grid-template-columns: 48px 1fr;
   }
 
@@ -1526,6 +1607,33 @@ html[lang="ja"] .proof-summary {
   letter-spacing: 0.2em;
 }
 
+html[lang="zh-Hant"] .work-title,
+html[lang="ja"] .work-title {
+  font-family: var(--cjk-display);
+  font-weight: 500;
+  font-size: clamp(1.6rem, 2.8vw, 2.2rem);
+  line-height: 1.3;
+  letter-spacing: 0.03em;
+}
+
+/* break the long Japanese title at phrase boundaries where supported;
+   overflow-wrap lets a phrase wider than the column still break (320px) */
+html[lang="ja"] .work-title {
+  word-break: auto-phrase;
+  overflow-wrap: anywhere;
+}
+
+html[lang="zh-Hant"] .pillar-desc,
+html[lang="ja"] .pillar-desc,
+html[lang="zh-Hant"] .work-desc,
+html[lang="ja"] .work-desc {
+  font-family: var(--cjk-body);
+  letter-spacing: 0.03em;
+  line-height: 1.9;
+}
+
+html[lang="zh-Hant"] .work-kind,
+html[lang="ja"] .work-kind,
 html[lang="zh-Hant"] .pillar-tag,
 html[lang="ja"] .pillar-tag,
 html[lang="zh-Hant"] .nav-links a,

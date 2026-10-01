@@ -17,6 +17,7 @@
 ## 結構與 i18n（2026-06-16 多語升級）
 - **多檔分頁**：`index.html`（en，根）+ `zh/index.html`（zh-Hant）+ `ja/index.html`（ja）。各頁 `<html lang>` + 互指 `hreflang`（en/zh-Hant/ja/x-default）+ self canonical + Open Graph。`sitemap.xml`、`robots.txt` 為 SEO。
 - **共用資源外置**：CSS/JS 抽成 `assets/styles.css` + `assets/main.js`，三頁共用，皆以**絕對路徑** `/assets/...` 引用（Vercel 正確；本機預覽必須走 http server，不能 `file://`）。
+- **View Transition gate（2026-10-01）**：每頁 `<head>` 的 `styles.css` `<link>` 之後必須緊接同步的 `<script src="/assets/vt-gate.js"></script>`（空檔，用途見檔內註解；check §11 會擋）。新增頁面照抄，不可加 `async`／`defer`。
 - **語言切換器**：nav 右側純連結（`/`、`/zh/`、`/ja/`），無 JS。窄屏（≤520px）隱藏 nav-links 只留切換器。
 - **CJK 字型（最容易踩的坑）**：Bebas Neue 無 CJK glyph，zh/ja 頁大標題改 Noto Sans TC/JP，以 Google Fonts `&text=` subset 只載該頁實際用字。**改文案必須同步更新該頁 `<link>` 的 `&text=` 參數**（缺字會 fallback 系統 CJK 字型，不破版但字重不同）。CJK 樣式覆寫集中在 `styles.css` 的 `html[lang="zh-Hant"]`/`[lang="ja"]` 區塊。
 
