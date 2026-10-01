@@ -89,10 +89,10 @@ window.__tweaks = {
   });
 })();
 
-/* ---------- Pointer glow on list rows (pillars / tech items) ---------- */
+/* ---------- Pointer glow on list rows (pillars / work / tech items) ---------- */
 (function () {
   if (!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
-  document.querySelectorAll('.pillar, .tech-item').forEach(function (el) {
+  document.querySelectorAll('.pillar, .work-item, .tech-item').forEach(function (el) {
     el.addEventListener('pointermove', function (e) {
       var r = el.getBoundingClientRect();
       el.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100).toFixed(2) + '%');
