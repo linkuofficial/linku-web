@@ -1,9 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="LINKU">
-  <rect width="64" height="64" rx="14" fill="#0a0a0a"/>
-  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="#e8e6e0" stroke-opacity="0.14"/>
-  <!-- L -->
-  <rect x="19" y="14" width="9" height="30" fill="#e8e6e0"/>
-  <rect x="19" y="35" width="25" height="9" fill="#e8e6e0"/>
-  <!-- accent node -->
-  <circle cx="45" cy="19" r="6" fill="#2ec27e"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768"><title>LINKU</title><rect width="768" height="768" fill="#fff"/><g transform="translate(-235 -162.5)"><path d="M565.824 232L672.176 318V559V804H760.966L806.824 864H565.824V232Z" fill="#080808"/><path d="M534 229V348.34L479.088 409.958C446.411 446.624 440.656 483.291 461.821 519.958L534 645L380.352 864H274L427.648 645L355.469 519.958C334.303 483.291 340.059 446.624 372.735 409.958L427.648 348.34L534 229Z" fill="#080808"/><path d="M943 487L810.352 648L964 864H857.648L704 648L836.648 487H943Z" fill="#080808"/></g></svg>
