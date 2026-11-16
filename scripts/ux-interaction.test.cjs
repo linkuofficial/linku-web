@@ -84,7 +84,9 @@ for (const hz of [60, 120, 144]) {
   h.document.hidden = true; h.document.fire('visibilitychange'); assert.equal(h.pending.size, 0);
   h.document.hidden = false; h.document.fire('visibilitychange'); assert.equal(h.pending.size, 1);
   h.fine.matches = false; h.fine.fire('change'); assert.equal(h.pending.size, 0);
-  const cadence = cursorHarness(main); cadence.step(0); cadence.move(900, 700);
+  // the first sighting places the ring on the pointer (no fly-in); the glide
+  // that must be refresh-rate independent is the move that follows it
+  const cadence = cursorHarness(main); cadence.move(100, 700); cadence.step(0); cadence.move(900, 700);
   for (let n = 1; n <= hz / 4; n++) cadence.step(n * 1000 / hz);
   positions.push(Number(cadence.ring.style.transform.match(/translate\(([\d.]+)px/)[1]));
 }
