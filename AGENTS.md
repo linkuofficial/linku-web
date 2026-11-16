@@ -22,7 +22,7 @@
 - **CJK 字型（最容易踩的坑）**：Bebas Neue 無 CJK glyph，zh/ja 頁大標題改 Noto Sans TC/JP，以 Google Fonts `&text=` subset 只載該頁實際用字。**改文案必須同步更新該頁 `<link>` 的 `&text=` 參數**（缺字會 fallback 系統 CJK 字型，不破版但字重不同）。CJK 樣式覆寫集中在 `styles.css` 的 `html[lang="zh-Hant"]`/`[lang="ja"]` 區塊。
 
 ## 動態系統（2026-11-13 kinetic-wall；簡報 `docs/tasks/2026-11-13-kinetic-wall.md`）
-- **首頁背景＝機械針床**（`assets/render.js`，WebGL2；2026-11-13 第三個方向，前兩個——翻轉鏡片牆、磁流體池——同日被否決；2026-11-14 依「優化」「做更細」加密到約 6 萬根針，同日凜空裁決採用：「可以，就這版」）；內頁仍是深空星點。高度場、伺服、受光都在 GPU 上（浮點貼圖）；數字與字標是 shader 內的筆畫距離場，場景**不得依賴字型或網路**（check §10 會擋）。場著色器裡的尺寸一律是「設計單位」（`uU`＝每單位幾根針）：要改針的疏密只動 `layout()` 的 `base`，不要去改各個形狀的常數。被否決版本的完整工作樹留在 git ref `refs/backup/kinetic-wall`、`refs/backup/ferrofluid`；加密前的針床在 `refs/backup/pinbed-v1`；2026-11-14 細節升級（珠子互相映照、半影、開機掃描、高解析自動銳化）之前、凜空說「可以，就這版」的狀態在 `refs/backup/pinbed-v2`；同日他點名「支撐的柱子不好看」，軸與軸環重做成細鋼軸＋車削金色軸環，重做前的狀態在 `refs/backup/pinbed-v3`；他對支撐柱說「可以」，該版在 `refs/backup/pinbed-v4`。其後依「做到能參賽等級」加了游標尾跡與聚光、棚燈光帶（2026-11-14 收尾時的狀態在 `refs/backup/pinbed-v5`）；他看過後說「不錯，但前面跟後面沒有協調好。視覺會被後面的動畫搶走」，同日做了前後景協調一輪，2026-11-15 他看過整頁錄影後說「可以」（採用版在 `refs/backup/pinbed-v6`；待裁事項見簡報的「HANDOFF（2026-11-14 收尾）」）。2026-11-16 依「把未做的幾項做好」處理了 T4、404 頁、社群分享圖與 Questions 2–4（簡報「2026-11-16 未做項目收尾」；備份 `refs/backup/pinbed-v7`，一般 commit，取回用 `git restore --source=<ref> --worktree -- .`）。
+- **首頁背景＝機械針床**（`assets/render.js`，WebGL2；2026-11-13 第三個方向，前兩個——翻轉鏡片牆、磁流體池——同日被否決；2026-11-14 依「優化」「做更細」加密到約 6 萬根針，同日凜空裁決採用：「可以，就這版」）；內頁仍是深空星點。高度場、伺服、受光都在 GPU 上（浮點貼圖）；數字與字標是 shader 內的筆畫距離場，場景**不得依賴字型或網路**（check §10 會擋）。場著色器裡的尺寸一律是「設計單位」（`uU`＝每單位幾根針）：要改針的疏密只動 `layout()` 的 `base`，不要去改各個形狀的常數。被否決版本的完整工作樹留在 git ref `refs/backup/kinetic-wall`、`refs/backup/ferrofluid`；加密前的針床在 `refs/backup/pinbed-v1`；2026-11-14 細節升級（珠子互相映照、半影、開機掃描、高解析自動銳化）之前、凜空說「可以，就這版」的狀態在 `refs/backup/pinbed-v2`；同日他點名「支撐的柱子不好看」，軸與軸環重做成細鋼軸＋車削金色軸環，重做前的狀態在 `refs/backup/pinbed-v3`；他對支撐柱說「可以」，該版在 `refs/backup/pinbed-v4`。其後依「做到能參賽等級」加了游標尾跡與聚光、棚燈光帶（2026-11-14 收尾時的狀態在 `refs/backup/pinbed-v5`）；他看過後說「不錯，但前面跟後面沒有協調好。視覺會被後面的動畫搶走」，同日做了前後景協調一輪，2026-11-15 他看過整頁錄影後說「可以」（採用版在 `refs/backup/pinbed-v6`；待裁事項見簡報的「HANDOFF（2026-11-14 收尾）」）。2026-11-16 依「把未做的幾項做好」處理了 T4、404 頁、社群分享圖與 Questions 2–4（簡報「2026-11-16 未做項目收尾」；備份 `refs/backup/pinbed-v7`，一般 commit，取回用 `git restore --source=<ref> --worktree -- .`）。**同日部署上線**（PR linkuofficial/linku-web#5，merge `a0f7cb5`）。
 - **文字帶頭，針床回應（2026-11-14）**：針床不做跟前景無關的定時動態（定時光帶因此拿掉）；首頁主體在標題到位後才升起、變形放慢。游標的下壓／尾跡／聚光共用 `computeState()` 的 `keep` 遮罩：游標在文字欄上方時關閉，各章節另以 `KF[].ptr` 設上限（理念 0.4、作品 0）。新增章節或改構圖時：亮的、會動的東西放在文字旁邊或下方，不要放在文字正後方（「理念」段就是這樣被改掉的），`ptr` 要一起定。
 - **排版動效與捲動編排在 `assets/main.js`**；一律是增強層：無 JS、JS 失敗、reduced-motion 都必須完整可讀。**不得劫持或改寫原生捲動**（check §10 會擋 wheel／scrollTo）。檔案開頭有一個 `error` 保護網（main.js 出錯就拿掉 `html.js`、放開所有遮罩），最後一行的 `js-ready` 是它的判斷依據：**新增區塊一律放在那一行之前**。
 - **環境動態一定要停得下來**：播放／暫停鈕（`.scene-toggle`）與 `html.motion-paused` 由 render.js 擁有，其他動態（跑馬燈、technology 頁的模擬）跟著它走。跑馬燈只在按鈕存在且為播放狀態時移動——不要加回 CSS 的自動捲動（沒有 WebGL／JS 時就沒有按鈕可停）。
@@ -38,6 +38,8 @@
 ```bash
 python D:\LINKU\nocache_server.py   # http://localhost:8080，no-cache（刻意放在 repo 外）
 ```
+- 本機預覽**沒有** `vercel.json` 的安全標頭（CSP）與 Vercel 的 404 行為；Vercel 預覽站有登入保護，外部腳本打不開。部署前要驗 CSP 時，用一支本機伺服器照 `vercel.json` 加標頭、照 `.vercelignore` 排除、找不到就回 `404.html`＋404，再用無頭 Chrome 收 `securitypolicyviolation`（2026-11-16 做法，見簡報「部署與收尾」）。
+- `.vercelignore` 目前只排除 `docs/`：`AGENTS.md`、`CLAUDE.md`、`scripts/`、`.github/` 在 linku.tech 上公開可讀（2026-11-16 發現，未處理；改它屬部署設定，要 brief＋交叉）。
 
 ## 驗證門檻（宣稱完成前）
 1. 本機 http 預覽三個語言頁面都實看（絕對路徑資源在 `file://` 下會壞，別誤判）。

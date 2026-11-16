@@ -1,5 +1,5 @@
 # TASK: kinetic-wall
-狀態: **方向三（機械針床，加密版）2026-11-14 獲凜空採用** — 鏡片牆、磁流體已否決；動效系統保留。**Codex 交叉審查已跑（2026-11-14）：`fix-needed`；F1–F3 已修並通過審查者測試，T4（釘選時頁內搜尋）待凜空定方向**（見 Review）。同日依他的指示陸續做了細節升級、支撐柱重做（已獲「可以」）與參賽等級一輪（游標尾跡與聚光等，**待他實看**）。**2026-11-14 已收尾**：現況、還原點、等他決定的事都在「HANDOFF（2026-11-14 收尾）」。收尾後他看了錄影，指出背景動畫搶走前景的注意力，同日做了「前後景協調」一輪，**2026-11-15 他看過整頁錄影後說「可以」**（採用版＝`refs/backup/pinbed-v6`）。**2026-11-16 他說「把未做的幾項做好」**：T4、自訂 404、社群分享圖、Questions 2–4、F1–F3 都已處理（見「2026-11-16 未做項目收尾」，備份 `refs/backup/pinbed-v7`）；只剩 commit／部署要他明說。未 commit、未部署
+狀態: **方向三（機械針床，加密版）2026-11-14 獲凜空採用** — 鏡片牆、磁流體已否決；動效系統保留。**Codex 交叉審查已跑（2026-11-14）：`fix-needed`；F1–F3 已修並通過審查者測試，T4（釘選時頁內搜尋）待凜空定方向**（見 Review）。同日依他的指示陸續做了細節升級、支撐柱重做（已獲「可以」）與參賽等級一輪（游標尾跡與聚光等，**待他實看**）。**2026-11-14 已收尾**：現況、還原點、等他決定的事都在「HANDOFF（2026-11-14 收尾）」。收尾後他看了錄影，指出背景動畫搶走前景的注意力，同日做了「前後景協調」一輪，**2026-11-15 他看過整頁錄影後說「可以」**（採用版＝`refs/backup/pinbed-v6`）。**2026-11-16 他說「把未做的幾項做好」**：T4、自訂 404、社群分享圖、Questions 2–4、F1–F3 都已處理（見「2026-11-16 未做項目收尾」，備份 `refs/backup/pinbed-v7`）；**2026-11-16 他說「確認沒問題後commit+push 完整部署並收尾」：已部署上線**（commit `60d1f79`，PR linkuofficial/linku-web#5 合併為 `a0f7cb5`，Vercel 正式站與合併內容逐位元組相同；部署驗證見「2026-11-16 部署與收尾」）。**狀態：done**
 建立: 2026-11-13 ｜ 秘書層＋實作層: claude-fable-5-2（同一 session，見 Review 區）
 Repo: web
 Base: main @ 21df14e ｜ Branch: feat/kinetic-wall
@@ -82,7 +82,7 @@ Required verification: `node scripts/check.mjs` 全 PASS ＋ proof／ux tests �
 
 **現在的狀態**
 
-- Branch `feat/kinetic-wall`，Base `main @ 21df14e`。**工作樹未 commit、未 push、未部署**（他沒有要求過）。
+- Branch `feat/kinetic-wall`，Base `main @ 21df14e`。~~工作樹未 commit、未 push、未部署~~ **2026-11-16 已上線**：commit `60d1f79`、PR linkuofficial/linku-web#5、合併 `a0f7cb5`、Vercel 正式部署（見「2026-11-16 部署與收尾」）。
 - 改動：15 個已追蹤檔（`git diff --stat`：+2110／−1316）＋本簡報（未追蹤）。九頁 HTML、`assets/render.js`、`assets/main.js`、`assets/styles.css`、`scripts/check.mjs`、`scripts/ux-interaction.test.cjs`、`AGENTS.md`。`proof.js`、`vt-gate.js`、`vercel.json`、sitemap、文案與 `&text=` 未動。2026-11-16 起另有：新增 `404.html`（未追蹤）、`assets/og-image.png` 換新、九頁的分享圖網址加版本參數。
 - 首頁主視覺＝機械針床加密版（已採用）＋細節升級＋細鋼軸與金色軸環（已採用）＋參賽等級一輪（游標尾跡與聚光、由全黑淡入、theme-color；他說「不錯，但前面跟後面沒有協調好」）＋前後景協調一輪（收尾之後做的，見同名小節；2026-11-15 他說「可以」）。**目前工作樹＝他採用的版本。**
 
@@ -119,6 +119,8 @@ Required verification: `node scripts/check.mjs` 全 PASS ＋ proof／ux tests �
 1. ~~前後景協調一輪留不留~~ **已裁決（2026-11-15「可以」）：以 `pinbed-v6` 為準。**
 
 > **2026-11-16 更新**：他說「把未做的幾項做好」。2、3、4、5、7 已處理，做法與代價在「2026-11-16 未做項目收尾」——T4 選 (b)；Questions 2–4 定案；404 與社群分享圖已做（文案與構圖是我定的，可改）；F1–F3 保留。**只剩 6（commit／push／PR／部署）**，要他明說才做。以下保留原題目作紀錄。
+>
+> **2026-11-16 再更新**：6 也完成了——他說「確認沒問題後commit+push 完整部署並收尾」，已 commit、push、開 PR、合併並部署到正式站（見「2026-11-16 部署與收尾」）。等凜空決定的事只剩下面「部署後仍開著的事」。
 2. **T4：支柱釘選時，頁內搜尋命中的字看不見**。(a) 不處理：Ctrl+F 找得到卻看不到，只影響寬螢幕且會搜尋的人。(b) 搜尋命中時讓該支柱顯示：要另寫機制，瀏覽器支援度與是否牴觸「不得改寫原生捲動」都要先查證。(c) 取消釘選：問題消失，但失去支柱章節的編排。
 3. **Questions 2–4**（內頁背景、Hero 標題字級、預算）。Q4 現在更具體：`render.js` 只剩 155 bytes，註解已刪過五輪；之後要再加功能，得先同意調高預算。
 4. **自訂 404 頁**。做＝需要他提供或核可三語文案。不做＝維持 Vercel 預設的白底頁。
@@ -354,7 +356,7 @@ Required verification: `node scripts/check.mjs` 全 PASS ＋ proof／ux tests �
 
 **F1–F3**：**保留**。三項都是修錯誤，審查者的 T1–T3 都通過。
 
-**這一輪的整體驗證**
+**這一輪的整體驗證（部署前）**
 - `check.mjs` 30 PASS；三組測試通過。
 - 頁內搜尋 17＋9 案。
 - 動畫逐幀對照 v6。
@@ -363,6 +365,32 @@ Required verification: `node scripts/check.mjs` 全 PASS ＋ proof／ux tests �
 - 審查者 T1–T3 沒重跑，因為 `render.js` 沒動。
 
 備份：`refs/backup/pinbed-v7`。
+
+### 2026-11-16 部署與收尾（凜空原話：「確認沒問題後commit+push 完整部署並收尾」）
+
+**部署前確認**
+- `check.mjs` 30 PASS、三組測試、全部 JS 語法檢查都重跑通過。
+- 正式站的 CSP 以前從沒在本機驗過（本機預覽沒有 `vercel.json` 的標頭）。這次用一支本機伺服器模擬 Vercel：照 `vercel.json` 加上全部標頭、照 `.vercelignore` 不送 `docs/`、找不到路徑就回 `404.html` 與 404 狀態碼。十頁加三個不存在的路徑 × 1440／390 跑過一輪，每頁都捲完整頁、按過播放／暫停。結果：0 個 CSP 違規、0 個 JS 錯誤、無橫向溢位。
+- 提交內容做了隱私掃描（repo 是公開的）：沒有 email、本機路徑或網路資訊。
+
+**提交與部署**
+- Commit `60d1f79`（18 個檔，含 `404.html` 與本簡報）推上 `feat/kinetic-wall`。
+- 開 PR linkuofficial/linku-web#5。push 與 PR 兩輪 CI 都通過，Vercel 預覽部署成功。
+- 以 merge commit 合併為 `a0f7cb5`，Vercel 自動部署到正式站。
+
+**正式站驗證（linku.tech）**
+- render.js、main.js、styles.css、vt-gate.js、404.html 與三頁 HTML 和 `a0f7cb5` 的內容逐位元組相同；`og-image.png` 也相同。
+- 不存在的路徑（`/no-such-page/`、`/zh/missing`、`/ja/x/y`）回 404 狀態碼加三語 404 頁（含 noindex）。`docs/` 沒有上線。五個安全標頭都在。
+- 無頭 Chrome 巡檢正式站十頁加三個 404 路徑 × 1440／390：0 個 CSP 違規、0 個 JS 錯誤、無溢位；首頁是針床，內頁是星點，都沒有降階。
+
+**部署後仍開著的事**（沒有一項擋住這次部署）
+1. **Lighthouse 沒量到**：PageSpeed 的 API 與網頁版當天都回 429（額度用完），改天再量。
+2. **Vercel 預覽站有登入保護**（302 轉到 vercel.com），外部腳本打不開，所以部署前用本機模擬代替。
+3. **Safari、Firefox、實機、低階手機仍然沒測**。
+4. **既有問題（不是這次造成的）**：`.vercelignore` 只排除 `docs/`，所以 `linku.tech/AGENTS.md`、`/CLAUDE.md`、`/scripts/*`、`/.github/*` 都公開可讀。內容本來就在公開的 GitHub repo，沒有新的外洩；但掛在公司網域上不專業，也可能被收錄。要改得動 `.vercelignore`（部署設定），照規則要先寫 brief 再交叉審查，這次沒動。
+5. 本機分支 `feat/kinetic-wall` 與遠端分支都還留著；`refs/backup/*` 只在本機，沒有推上去。
+
+這次部署沒有新增跨 repo 的決策，`decisions-ledger.md` 未動；也沒有跑交叉審查，scorecard 不需要記一行。
 
 ## Review（審查層填；盡量用與實作層不同的模型家族）
 
@@ -647,4 +675,9 @@ test('T4: native find exposes the matched pillar', async ({ page, browserName })
 - 2026-11-16：「**把未做的幾項做好**」。
 - 決定: 我把它讀成由我定案並做完 T4、Questions 2–4、自訂 404、社群分享圖、F1–F3（**我的解讀**）。T4 選 (b)；Q2 失效、Q3 維持、Q4 不調；404 文案與分享圖構圖由我擬定；F1–F3 保留。內容見「2026-11-16 未做項目收尾」，備份 `refs/backup/pinbed-v7`。他還沒看過 404 頁與新分享圖。
 - 仍待他決定: commit／push／PR／部署。
+- 日期: 2026-11-16
+
+- 2026-11-16：「**確認沒問題後commit+push 完整部署並收尾**」。
+- 決定: 先在本機模擬正式站的標頭與 404 驗證，再 commit `60d1f79` → PR linkuofficial/linku-web#5（兩輪 CI 綠、Vercel 預覽成功）→ 合併 `a0f7cb5` → Vercel 正式部署 → 正式站驗證。他沒有看過 404 頁與新分享圖的實際上線狀態（只看過截圖）。
+- 部署後仍開著的事: 見「2026-11-16 部署與收尾」的五項（Lighthouse 未量、預覽站登入保護、跨瀏覽器與實機、`.vercelignore` 既有的公開範圍、分支未刪）。
 - 日期: 2026-11-16
