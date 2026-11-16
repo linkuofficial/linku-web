@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <!-- Vercel serves this page for every missing path, in every language:
+       never indexed, no canonical, not in the sitemap (check.mjs §12). -->
+  <meta name="robots" content="noindex" />
+
+  <!-- Favicon -->
+  <link rel="icon" href="/assets/icon-192.png?v=da5a1367" sizes="192x192" type="image/png" />
+  <link rel="icon" href="/assets/icon-512.png?v=16fe1b22" sizes="512x512" type="image/png" />
+  <link rel="icon" href="/favicon.ico?v=3fda32a6" sizes="16x16 32x32 48x48" type="image/x-icon" />
+  <link rel="icon" href="/assets/favicon.svg?v=75b62a2c" sizes="any" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=6493cd5e" sizes="180x180" />
+
+  <title>Page not found — LINKU</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500&display=swap"
+    rel="stylesheet" />
+  <!-- CJK subsets: only the glyphs of the two localized lines (&text=, check.mjs §12) -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500&text=%E9%80%99%E5%80%8B%E9%A0%81%E9%9D%A2%E4%B8%8D%E5%AD%98%E5%9C%A8%E3%80%82%E5%9B%9E%E5%88%B0%E9%A6%96&display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500&text=%E3%81%93%E3%81%AE%E3%83%9A%E3%83%BC%E3%82%B8%E3%81%AF%E5%AD%98%E5%9C%A8%E3%81%97%E3%81%BE%E3%81%9B%E3%82%93%E3%80%82%E3%83%9B%E3%83%A0%E3%81%AB%E6%88%BB%E3%82%8B&display=swap"
+    rel="stylesheet" />
+
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <script src="/assets/vt-gate.js"></script>
+</head>
+
+<body>
+  <a class="skip-link" href="#top">Skip to content</a>
+  <canvas id="particles" aria-hidden="true" data-l-play="Play background animation" data-l-pause="Pause background animation"></canvas>
+  <div class="cursor-ring" aria-hidden="true"></div>
+  <div class="cursor-dot" aria-hidden="true"></div>
+
+  <nav aria-label="Primary">
+    <a href="/" class="brand">LINKU</a>
+    <div class="nav-right">
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/technology/">Technology</a></li>
+        <li><a href="/about/">About</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main class="wrap" id="top" tabindex="-1">
+
+    <section class="nf section-pad" data-screen-label="Not found">
+      <div class="label">Page not found</div>
+      <h1 class="nf-code">404</h1>
+      <ul class="nf-list">
+        <li lang="en">
+          <p>This page doesn't exist.</p>
+          <a class="more-link" href="/" hreflang="en" data-cursor="hover">Back to home<span class="arrow">&#8594;</span></a>
+        </li>
+        <li lang="zh-Hant">
+          <p>這個頁面不存在。</p>
+          <a class="more-link" href="/zh/" hreflang="zh-Hant" data-cursor="hover">回到首頁<span class="arrow">&#8594;</span></a>
+        </li>
+        <li lang="ja">
+          <p>このページは存在しません。</p>
+          <a class="more-link" href="/ja/" hreflang="ja" data-cursor="hover">ホームに戻る<span class="arrow">&#8594;</span></a>
+        </li>
+      </ul>
+      <footer>
+        <span>LINKU &copy; 2026</span>
+        <span>Artificial Intelligence &times; Physical World</span>
+      </footer>
+    </section>
+
+  </main>
+
+  <script src="/assets/render.js"></script>
+  <script src="/assets/main.js"></script>
+
+</body>
+
+</html>

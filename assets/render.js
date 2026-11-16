@@ -1,721 +1,748 @@
-/* ============================================================
-   LINKU brand scene — gimbal-core render engine (zero deps).
-   L0 starfield → L1 gimbal machine (studio env light, SDF-baked AO,
-   MSAA) → L2 accretion particles; bright→3-level bloom→ACES composite.
-   Ladder: WebGL2+half-float pipeline → WebGL1/no-float direct draw
-   (grade in-shader) → no GL: static 2D frame.
-   Home pages scroll-drive the scene (Hero run → Statement push-in →
-   Pillars exploded, lit per pillar → Contact lock+pulse); inner pages
-   idle ambient. Reduced motion: one settled frame + play toggle.
-   Perf: DPR/edge caps, idle 30fps, hidden stop, low-FPS tier-down,
-   context-lost recovery; resize never rebuilds geometry (lvh canvas).
-   Dev flags (exact match): #still freeze+snapshot, #reduce force path.
-   ============================================================ */
+/* LINKU brand scene — the pin bed (zero deps, WebGL2).
+   Home: a shape display. Machined pins (steel bead, gold collar, slender
+   shaft) rise and sink to give computed forms a body — a solid that keeps
+   becoming another, the pillar numerals, the wordmark. All on the GPU:
+   field (target heights) → servo (mass, damping, speed limit) → light
+   (shadow / occlusion from the heights) → one quad per pin, intersected
+   analytically per pixel, painter's order → blur pyramid → ACES grade.
+   Inner pages: a starfield (direct draw). Reduced motion: one settled frame
+   (home) or a zero-GL poster (inner), plus a play toggle.
+   Dev flags (exact match): #still, #reduce. */
 (function () {
   'use strict';
 
   var canvas = document.getElementById('particles');
   if (!canvas) return;
+  var root = document.documentElement;
 
-  // exact-match dev flags — substring matching would misfire on real anchors
-  // (#stillness, #reduced-latency); proof.js follows the same contract
+  // exact match: a substring test would misfire on real anchors (#stillness)
   var HASH = location.hash || '';
   var STILL = HASH === '#still';
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches
     || HASH === '#reduce' || STILL;
   var HOME = !!document.querySelector('[data-screen-label="Hero"]');
-  var INNER = !HOME; // inner pages (about/technology): pure deep space, no machine
+  var INNER = !HOME; // inner pages (about/technology): pure deep space, no bed
 
-  // Reduced-motion gets a zero-GL poster. The canvas remains untouched, so a
-  // visitor who explicitly presses Play can still opt into the full renderer.
+  // inner pages, reduced motion: a zero-GL poster (Play can still boot the renderer)
   function staticPoster() {
-    var stars = '<g fill="%23e8e6e0" fill-opacity=".13">';
+    var stars = '<g fill="#e8e6e0" fill-opacity=".13">';
     for (var i = 0; i < 28; i++) {
       var x = (i * 347 + 83) % 1200, y = (i * 193 + 61) % 700;
       stars += '<circle cx="' + x + '" cy="' + y + '" r="' + (i % 5 ? 1 : 2) + '"/>';
     }
-    stars += '</g>';
-    var machine = HOME ? '<g fill="none" transform="translate(830 320) rotate(-18)">'
-      + '<ellipse rx="205" ry="88" stroke="%238194ab" stroke-opacity=".48" stroke-width="10"/>'
-      + '<ellipse rx="118" ry="188" stroke="%23e8e6e0" stroke-opacity=".35" stroke-width="8"/>'
-      + '<circle r="47" fill="%23e8b478" fill-opacity=".16" stroke="%23e8b478" stroke-opacity=".75" stroke-width="3"/>'
-      + '</g>' : '';
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">'
-      + '<defs><radialGradient id="g"><stop stop-color="%23e8b478" stop-opacity=".12"/><stop offset="1" stop-color="%230a0a0a" stop-opacity="0"/></radialGradient></defs>'
-      + '<rect width="1200" height="700" fill="%230a0a0a"/><circle cx="' + (HOME ? 830 : 600) + '" cy="310" r="360" fill="url(%23g)"/>'
-      + stars + machine + '</svg>';
+      + '<defs><radialGradient id="g"><stop stop-color="#e8b478" stop-opacity=".12"/><stop offset="1" stop-color="#0a0a0a" stop-opacity="0"/></radialGradient></defs>'
+      + '<rect width="1200" height="700" fill="#0a0a0a"/><circle cx="600" cy="310" r="360" fill="url(#g)"/>'
+      + stars + '</g></svg>';
     canvas.style.background = 'center / cover no-repeat url("data:image/svg+xml,'
-      + encodeURIComponent(svg.replace(/%23/g, '#')) + '")';
+      + encodeURIComponent(svg) + '")';
   }
+  // main.js and proof.js follow the same play / pause
+  function emit(on) {
+    try { document.dispatchEvent(new CustomEvent('linku-motion-toggle', { detail: { running: on } })); } catch (e) { }
+  }
+  var refocus = false;   // the preboot button hands keyboard focus to the real one
   function prebootToggle() {
     var b = document.createElement('button');
     b.type = 'button'; b.className = 'scene-toggle'; b.textContent = '▶';
     b.setAttribute('aria-label', canvas.getAttribute('data-l-play') || 'Play background animation');
     b.title = b.getAttribute('aria-label');
     b.addEventListener('click', function () {
+      refocus = document.activeElement === b;
       b.remove(); reduce = false;
-      document.documentElement.classList.remove('motion-paused');
+      root.classList.remove('motion-paused');
       canvas.style.background = 'none';
-      try { document.dispatchEvent(new CustomEvent('linku-motion-toggle', { detail: { running: true } })); } catch (e) { }
+      emit(true);
       if (typeof requestAnimationFrame === 'function') requestAnimationFrame(boot); else boot();
     });
     document.body.appendChild(b);
   }
 
-  // Heavy init (geometry+AO bake+GL, tens of ms on weak mobiles) runs on the
-  // first animation frame, off the parse path (no DCL block / long task).
-  // Body keeps flat indentation: re-indenting would cost ~2KB of byte budget.
+  // heavy init runs on the first animation frame, off the parse path
   function boot() {
 
-  /* ---------------- geometry (C3 gimbal core) ---------------- */
-  var pos = [], nrm = [], typ = [], rnd = [];
-  function tri(a, b, c, type, r) {
-    var ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
-    var vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
-    var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    var l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
-    var pts = [a, b, c];
-    for (var i = 0; i < 3; i++) {
-      var p = pts[i];
-      pos.push(p[0], p[1], p[2]); nrm.push(nx, ny, nz); typ.push(type); rnd.push(r);
-    }
-  }
-  function quadOut(a, b, c, d, ref, type, r) {
-    var ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
-    var vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
-    var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    var cx = (a[0] + b[0] + c[0] + d[0]) / 4 - ref[0];
-    var cy = (a[1] + b[1] + c[1] + d[1]) / 4 - ref[1];
-    var cz = (a[2] + b[2] + c[2] + d[2]) / 4 - ref[2];
-    if (nx * cx + ny * cy + nz * cz < 0) { tri(a, d, c, type, r); tri(a, c, b, type, r); }
-    else { tri(a, b, c, type, r); tri(a, c, d, type, r); }
-  }
-  var objects = {}, cur = null;
-  function beginObj(name) { cur = { start: pos.length / 3 }; objects[name] = cur; }
-  function endObj() { cur.count = pos.length / 3 - cur.start; }
-
-  // ring: sweep an arbitrary closed profile [(u,v)...] around Y; diagonal
-  // segments (chamfers) become type 1 so the shader can run signal light on them
-  function buildRing(name, R, profile, segs) {
-    beginObj(name);
-    var m = profile.length, s, i;
-    var segType = [];
-    for (i = 0; i < m; i++) {
-      var p0 = profile[i], q0 = profile[(i + 1) % m];
-      segType.push((Math.abs(p0[0] - q0[0]) > 1e-6 && Math.abs(p0[1] - q0[1]) > 1e-6) ? 1 : 0);
-    }
-    function map(u, v, th) { return [(R + u) * Math.cos(th), v, (R + u) * Math.sin(th)]; }
-    for (s = 0; s < segs; s++) {
-      var th0 = s / segs * Math.PI * 2, th1 = (s + 1) / segs * Math.PI * 2;
-      var thm = (th0 + th1) / 2;
-      var ref = [R * Math.cos(thm), 0, R * Math.sin(thm)];
-      var ang = s / segs; // angular position 0..1 — drives the traveling signal band
-      for (i = 0; i < m; i++) {
-        var p = profile[i], q = profile[(i + 1) % m];
-        quadOut(map(p[0], p[1], th0), map(q[0], q[1], th0), map(q[0], q[1], th1), map(p[0], p[1], th1),
-          ref, segType[i], ang);
-      }
-    }
-    endObj();
-  }
-  function groovedProfile(t, h, c, g, d) {
-    return [
-      [-t / 2 + c, h / 2], [t / 2 - c, h / 2], [t / 2, h / 2 - c],
-      [t / 2, g / 2], [t / 2 - d, g / 2], [t / 2 - d, -g / 2], [t / 2, -g / 2],
-      [t / 2, -h / 2 + c], [t / 2 - c, -h / 2], [-t / 2 + c, -h / 2],
-      [-t / 2, -h / 2 + c], [-t / 2, h / 2 - c],
-    ];
-  }
-  function chamferProfile(t, h, c) {
-    return [
-      [-t / 2 + c, h / 2], [t / 2 - c, h / 2], [t / 2, h / 2 - c], [t / 2, -h / 2 + c],
-      [t / 2 - c, -h / 2], [-t / 2 + c, -h / 2], [-t / 2, -h / 2 + c], [-t / 2, h / 2 - c],
-    ];
-  }
-  function buildBox(name, cx, cy, cz, sx, sy, sz, type) {
-    beginObj(name);
-    var x0 = cx - sx / 2, x1 = cx + sx / 2, y0 = cy - sy / 2, y1 = cy + sy / 2, z0 = cz - sz / 2, z1 = cz + sz / 2;
-    var ref = [cx, cy, cz], r = Math.abs(Math.sin(cx * 12.9 + cz * 78.2));
-    quadOut([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], ref, type, r);
-    quadOut([x0, y0, z0], [x0, y1, z0], [x1, y1, z0], [x1, y0, z0], ref, type, r);
-    quadOut([x0, y1, z0], [x0, y1, z1], [x1, y1, z1], [x1, y1, z0], ref, type, r);
-    quadOut([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], ref, type, r);
-    quadOut([x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1], ref, type, r);
-    quadOut([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], ref, type, r);
-    endObj();
-  }
-  function icosphere(sub) {
-    function nn(p) { var l = Math.hypot(p[0], p[1], p[2]); return [p[0] / l, p[1] / l, p[2] / l]; }
-    function mid(a, b) { return nn([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]); }
-    var t0 = (1 + Math.sqrt(5)) / 2;
-    var iv = [[-1, t0, 0], [1, t0, 0], [-1, -t0, 0], [1, -t0, 0], [0, -1, t0], [0, 1, t0], [0, -1, -t0], [0, 1, -t0], [t0, 0, -1], [t0, 0, 1], [-t0, 0, -1], [-t0, 0, 1]].map(nn);
-    var ifc = [[0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11], [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8], [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9], [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1]];
-    var tris = ifc.map(function (f) { return [iv[f[0]], iv[f[1]], iv[f[2]]]; });
-    for (var s = 0; s < sub; s++) {
-      var nt = [];
-      for (var k = 0; k < tris.length; k++) {
-        var a = tris[k][0], b = tris[k][1], c = tris[k][2];
-        var ab = mid(a, b), bc = mid(b, c), ca = mid(c, a);
-        nt.push([a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]);
-      }
-      tris = nt;
-    }
-    return tris;
-  }
-  // core: shell plates shrunk toward each face centroid + lifted along the
-  // normal (light leaks through the seams) over an inner emissive sphere
-  function buildCore(nameShell, nameGlow, r) {
-    beginObj(nameShell);
-    icosphere(2).forEach(function (f, fi) {
-      var A = f[0].map(function (v) { return v * r; });
-      var B = f[1].map(function (v) { return v * r; });
-      var C = f[2].map(function (v) { return v * r; });
-      var m = [(A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3, (A[2] + B[2] + C[2]) / 3];
-      var ml = Math.hypot(m[0], m[1], m[2]);
-      var nl = [m[0] / ml, m[1] / ml, m[2] / ml];
-      var lift = 0.010;
-      function sk(p) {
-        return [
-          m[0] + (p[0] - m[0]) * 0.90 + nl[0] * lift,
-          m[1] + (p[1] - m[1]) * 0.90 + nl[1] * lift,
-          m[2] + (p[2] - m[2]) * 0.90 + nl[2] * lift,
-        ];
-      }
-      var rr = Math.abs(Math.sin(fi * 127.1));
-      var A2 = sk(A), B2 = sk(B), C2 = sk(C);
-      var ux = B2[0] - A2[0], uy = B2[1] - A2[1], uz = B2[2] - A2[2];
-      var vx = C2[0] - A2[0], vy = C2[1] - A2[1], vz = C2[2] - A2[2];
-      var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-      if (nx * m[0] + ny * m[1] + nz * m[2] < 0) tri(A2, C2, B2, 2, rr); else tri(A2, B2, C2, 2, rr);
+  var gl = null;
+  try {
+    gl = canvas.getContext('webgl2', {
+      antialias: false, alpha: false, depth: false, stencil: false,
+      powerPreference: 'high-performance', preserveDrawingBuffer: STILL,
     });
-    endObj();
-    beginObj(nameGlow);
-    icosphere(1).forEach(function (f, fi) {
-      var rg = r * 0.90;
-      var A = f[0].map(function (v) { return v * rg; });
-      var B = f[1].map(function (v) { return v * rg; });
-      var C = f[2].map(function (v) { return v * rg; });
-      var m = [(A[0] + B[0] + C[0]) / 3, (A[1] + B[1] + C[1]) / 3, (A[2] + B[2] + C[2]) / 3];
-      var ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2];
-      var vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
-      var nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-      var rr = Math.abs(Math.sin(fi * 311.7));
-      if (nx * m[0] + ny * m[1] + nz * m[2] < 0) tri(A, C, B, 3, rr); else tri(A, B, C, 3, rr);
+  } catch (e) { gl = null; }
+  if (!gl) { window.__scene = { mode: 'none' }; return; }
+  // Inner pages only draw a starfield: direct path, never an off-screen FBO.
+  var MODE = INNER ? 'direct' : 'pipe';
+  // extensions are per-context-lifetime: this runs again after a context restore
+  function floatTargets() { return !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float')); }
+  // the bed lives in float textures: without them, the plain page
+  if (HOME && !floatTargets()) { window.__scene = { mode: 'none' }; return; }
+
+  /* ---------------- shaders ---------------- */
+  // samplers default to lowp: the bed's heights live in float textures
+  var HEAD = '#version 300 es\nprecision highp float;precision highp int;precision highp sampler2D;\n';
+  var HASHFN = 'float hs(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}\n';
+
+  var GRADE_FN = [
+    'vec3 aces(vec3 x){return clamp(x*(2.51*x+.03)/(x*(2.43*x+.59)+.14),0.,1.);}',
+    'float hsh(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}',
+    'vec3 grade(vec3 c,vec2 v,vec2 fc,float t){',
+    'c=aces(c);c=pow(c,vec3(1.06));',              // sink the shadows a touch
+    'c+=vec3(.004,.007,.014)*(1.-c);',             // shadow blue-shift (film feel)
+    'c*=1.-.34*dot(v*.62,v*.62);',                 // vignette
+    'c+=(hsh(fc+fract(t)*7.)-.5)*.008;',           // dither vs banding
+    'return c;}',
+  ].join('\n');
+
+  var QUAD_VS = HEAD + 'layout(location=0) in vec2 p;out vec2 vUv;void main(){vUv=p*.5+.5;gl_Position=vec4(p,0.,1.);}';
+
+  /* 1 · field: the height every pin is asked for (one texel per pin). Numerals
+     and wordmark are stroke distance fields raised as half-tubes: no font. */
+  var FORM_FS = HEAD + HASHFN + [
+    'out vec4 o;',
+    'uniform vec2 uOrg,uScr;uniform float uT,uSwell,uSpin,uWs,uU,uIn;',
+    'uniform vec4 uHero,uMorph,uPtr,uNum,uWord,uAx,uAxW;uniform vec3 uNumA;uniform vec4 uRip[4],uTr[10];',
+    'float sg(vec2 p,vec2 a,vec2 b){vec2 d=b-a;return length(p-a-d*clamp(dot(p-a,d)/(dot(d,d)+1e-6),0.,1.));}',
+    // arc: centre c, radius r, facing angle f, half-aperture ha
+    'float ar(vec2 p,vec2 c,float r,float f,float ha){p-=c;float cf=cos(f),sf=sin(f);p=vec2(cf*p.x+sf*p.y,cf*p.y-sf*p.x);',
+    'if(abs(atan(p.y,p.x))<ha)return abs(length(p)-r);vec2 e=r*vec2(cos(ha),sin(ha));return min(length(p-e),length(p-vec2(e.x,-e.y)));}',
+    'float tb(float d,float w){d/=w;return sqrt(max(1.-d*d,0.));}',        // half-tube profile
+    'float g0(vec2 p){vec2 q=abs(p)-vec2(0.,1.2);return abs(length(max(q,0.))+min(max(q.x,q.y),0.)-1.55);}',
+    'float g1(vec2 p){return min(sg(p,vec2(.35,-2.75),vec2(.35,2.75)),sg(p,vec2(.35,2.75),vec2(-1.,1.7)));}',
+    'float g2(vec2 p){return min(ar(p,vec2(0.,1.25),1.5,1.239,1.902),min(sg(p,vec2(1.18,.33),vec2(-1.55,-2.75)),sg(p,vec2(-1.55,-2.75),vec2(1.6,-2.75))));}',
+    'float g3(vec2 p){return min(ar(p,vec2(-.05,1.3),1.45,.5236,2.0944),ar(p,vec2(-.05,-1.3),1.45,-.5236,2.0944));}',
+    'float gw(vec2 p){',                                                   // L I N K U
+    'float d=min(sg(p,vec2(-11.2,2.75),vec2(-11.2,-2.75)),sg(p,vec2(-11.2,-2.75),vec2(-8.4,-2.75)));',
+    'd=min(d,sg(p,vec2(-6.,2.75),vec2(-6.,-2.75)));',
+    'd=min(d,min(sg(p,vec2(-3.6,-2.75),vec2(-3.6,2.75)),min(sg(p,vec2(-3.6,2.75),vec2(-.2,-2.75)),sg(p,vec2(-.2,-2.75),vec2(-.2,2.75)))));',
+    'd=min(d,min(sg(p,vec2(2.2,-2.75),vec2(2.2,2.75)),min(sg(p,vec2(2.2,-.4),vec2(5.4,2.75)),sg(p,vec2(3.35,.72),vec2(5.5,-2.75)))));',
+    'd=min(d,min(sg(p,vec2(7.8,2.75),vec2(7.8,-1.05)),min(ar(p,vec2(9.5,-1.05),1.7,-1.5708,1.5708),sg(p,vec2(11.2,-1.05),vec2(11.2,2.75)))));',
+    'return d;}',
+    'float ss(float x){x=clamp(x,0.,1.);return x*x*(3.-2.*x);}',
+    'void main(){',
+    // P = this pin; p = the same place in design units (uU pins each)
+    'vec2 P=uOrg+floor(gl_FragCoord.xy),p=P/uU;',
+    // the surface is never dead: a long slow swell
+    'float h=uSwell*sin(.13*p.x+.07*p.y+uT*.42)*sin(.09*p.y-.05*p.x-uT*.31);',
+    // power-on: one homing pass crosses the bed — every pin dips, then seats
+    'float w=(dot(p-uHero.xy,vec2(.8,.6))-uIn)*.06;h-=1.9*w*exp(-w*w);',
+    // hero: dome · torus · stepped pyramid · drop impact, each becoming the next
+    'vec2 q=(p-uHero.xy)/uHero.w;float d=length(q),D=d*uHero.w;',
+    'float cs=cos(uSpin),sn=sin(uSpin);vec2 qr=abs(vec2(cs*q.x+sn*q.y,cs*q.y-sn*q.x))-.50;',
+    'float f=uMorph.x*.66*sqrt(max(1.-d*d,0.))',
+    '+uMorph.y*1.25*sqrt(max(.085-(d-.64)*(d-.64),0.))',
+    '+uMorph.z*.115*clamp(floor(-(length(max(qr,0.))+min(max(qr.x,qr.y),0.)-.30)*7.2+1.),0.,5.)',
+    '+uMorph.w*.62*sin(7.5*d)/(7.5*d+.001)*(1.+1.3*smoothstep(.3,.6,d))*exp(-d*d*.55);',
+    'h+=uHero.z*(uHero.w*f+.22*cos(D*.9-uT*1.1)*exp(-D/16.)*smoothstep(.9,1.4,d));',
+    // pillar numerals: 0 + {1,2,3}, each with its own way of arriving
+    'vec2 v=p-uNum.xy;vec2 g=vec2(dot(v,uAx.xy),dot(v,uAx.zw)/uNum.w)/uNum.z;',
+    'float z0=g0(g+vec2(2.35,0.));vec2 gr=g-vec2(2.35,0.);',
+    'h+=3.2*(ss(uNumA.x*1.8-hs(P)*.8)*tb(min(z0,g1(gr)),.62)',                       // 01: every pin decides alone
+    '+ss(uNumA.y*1.8-(g.x+4.2)/8.4*.8)*tb(min(z0,g2(gr)),.62)',                      // 02: one swept front
+    '+ss(uNumA.z*1.8-length(g*vec2(1.,.7))/5.*.8)*tb(min(z0,g3(gr)),.62));',         // 03: outward from the centre
+    // wordmark, swept in
+    'v=p-uWord.xy;g=vec2(dot(v,uAxW.xy),dot(v,uAxW.zw)/uWs)/uWord.z;',
+    'h+=2.2*ss(uWord.w*1.7-(g.x+11.4)/22.8*.7)*tb(gw(g),.52);',
+    // the pointer presses in: a dent with a displaced rim
+    'v=p-uPtr.xy;float dd=dot(v,v),rr=sqrt(dd)-3.4;',
+    'h+=uPtr.z*(-1.7*exp(-dd/7.)+.5*exp(-rr*rr/2.4));',
+    // …and leaves a wake (uTr, newest first: xy place, z age, w joined to the next)
+    'for(int i=0;i<9;i++){vec4 a=uTr[i],b=uTr[i+1];float s=sg(p,a.xy,b.xy);h+=a.w*1.3*exp(-b.z-s*s*.22);}',
+    // click ripples
+    'for(int i=0;i<4;i++){float r=length(p-uRip[i].xy),ph=r-9.*uRip[i].z;',
+    'h+=uRip[i].w*exp(-uRip[i].z*1.3)*cos(ph*1.25)*exp(-ph*ph/10.)/(1.+r*.04);}',
+    'h+=uScr.y*sin(p.y*.42+p.x*.08-uScr.x);',                              // scrolling drags a wave train through the bed
+    'o=vec4(clamp(h,-2.5,12.)*uU+(hs(P+7.3)-.5)*.05,0.,0.,1.);}',             // + seating tolerance
+  ].join('\n');
+
+  /* 2 · servo: second-order, speed-limited — mass, a little overshoot, late arrival */
+  var SIM_FS = HEAD + HASHFN + [
+    'out vec4 o;uniform sampler2D uPrev,uTgt;uniform float uDt,uU;',
+    'void main(){ivec2 c=ivec2(gl_FragCoord.xy);vec4 s=texelFetch(uPrev,c,0);float tg=texelFetch(uTgt,c,0).r;',
+    'float K=120.*(.8+.4*hs(vec2(c))),C=1.24*sqrt(K);',
+    'float v=clamp(s.g+((tg-s.r)*K-s.g*C)*uDt,-17.*uU,17.*uU);',
+    'o=vec4(s.r+v*uDt,v,0.,1.);}',
+  ].join('\n');
+
+  /* 3 · light, per pin: key visibility (a short march through the heights),
+     occlusion by taller neighbours, how far down its shaft shows */
+  var LIGHT_FS = HEAD + [
+    'out vec4 o;uniform sampler2D uSt;uniform vec2 uLd,uGs;uniform float uLs,uU;uniform int uSx;uniform vec3 uLk;',
+    'float H(ivec2 c){return texelFetch(uSt,c,0).r;}',
+    'void main(){ivec2 c=ivec2(gl_FragCoord.xy);vec4 s=texelFetch(uSt,c,0);float h=s.r;',
+    'float sh=1.;',
+    'for(int k=1;k<=12;k++){float d=float(k)*1.25*uU;',
+    'float hk=texture(uSt,(gl_FragCoord.xy+uLd*d)/uGs).r;',
+    'sh=min(sh,clamp(.6-(hk-h-d*uLs)*4.5/d,0.,1.));}',   // penumbra widens with distance
+    'float a=0.;',
+    'a+=max(H(c+ivec2(1,0))-h,0.)+max(H(c+ivec2(-1,0))-h,0.)+max(H(c+ivec2(0,1))-h,0.)+max(H(c+ivec2(0,-1))-h,0.);',
+    'a+=.7*(max(H(c+ivec2(1,1))-h,0.)+max(H(c+ivec2(-1,1))-h,0.)+max(H(c+ivec2(1,-1))-h,0.)+max(H(c+ivec2(-1,-1))-h,0.));',
+    'a+=.4*(max(H(c+ivec2(2,0))-h,0.)+max(H(c+ivec2(-2,0))-h,0.)+max(H(c+ivec2(0,2))-h,0.)+max(H(c+ivec2(0,-2))-h,0.));',
+    'float b=min(min(H(c+ivec2(0,1)),H(c+ivec2(uSx,1))),min(H(c+ivec2(uSx,0)),min(H(c+ivec2(0,2)),H(c+ivec2(uSx,2)))));',
+    'vec3 nm=normalize(vec3(H(c+ivec2(-2,0))-H(c+ivec2(2,0)),4.,H(c+ivec2(0,-2))-H(c+ivec2(0,2))));',
+    'float av=(H(c+ivec2(3,0))+H(c+ivec2(-3,0))+H(c+ivec2(0,3))+H(c+ivec2(0,-3))+H(c+ivec2(2,2))+H(c+ivec2(-2,2))+H(c+ivec2(2,-2))+H(c+ivec2(-2,-2)))*.125;',
+    'float cr=clamp(1.+.26*uU*(h-av),.5,1.8);',                                  // crests stand in more light than hollows
+    // r key · g occlusion · b lowest height the shaft shows down to · a fill
+    'float oc=1./(1.+.5*a/uU),fs=dot(nm,vec3(.6202,.6202,.4802))/.6202;',
+    'o=vec4(sh*cr*clamp(dot(nm,uLk)/uLk.y,.25,1.7),(.55+.45*cr)*oc,min(b,h)-.9,cr*clamp(fs,.4,1.6)*mix(oc,1.,smoothstep(.95,1.35,fs)));}',
+  ].join('\n');
+
+  /* 4 · the pins: one instanced quad each, in the plane facing the camera
+     through the pin's axis; bead, collar and shaft are intersected analytically */
+  var PIN_VS = HEAD + [
+    'layout(location=0) in vec2 aC;',
+    'uniform sampler2D uSt,uLt;uniform ivec2 uGrid;uniform vec2 uOrg;uniform int uIc;',
+    'uniform vec3 uEye;uniform mat4 uVP;uniform float uPxK;uniform vec4 uSpot;uniform vec3 uFog,uPl;',
+    'out vec2 vQ;flat out vec4 vD,vL,vG;flat out vec3 vVd;',
+    'void main(){',
+    'int id=gl_InstanceID,k=id%uGrid.x,j=id/uGrid.x,i;',
+    // painter order: rows far → near; in a row, outer columns first
+    'int a=uIc,b=uGrid.x-1-uIc,lo=min(a,b),hi=max(a,b);',
+    'if(k<hi-lo){int d=hi-k;i=a>b?uIc-d:uIc+d;}',
+    'else{int kk=k-(hi-lo),d=lo-kk/2;i=d==0?uIc:((kk&1)==0?uIc-d:uIc+d);}',
+    'ivec2 c=ivec2(i,j);vec4 s=texelFetch(uSt,c,0),L=texelFetch(uLt,c,0);',
+    'vec3 top=vec3(uOrg.x+float(i),s.r,uOrg.y+float(j));',
+    'vec3 vd=top-uEye;float dist=length(vd);vd/=dist;',
+    'vec3 rt=normalize(vec3(-vd.z,0.,vd.x)),up=cross(rt,vd);',
+    'float cu=up.y,px=dist*uPxK,m=px;',      // foreshortening · world units per pixel · AA skirt
+    'float len=max(s.r-L.b,0.)*cu;',             // visible shaft, measured on the view plane
+    'vec2 qd=vec2(aC.x*(.46+m),mix(-len-m,.46+m,aC.y));',
+    'float fog=smoothstep(uFog.x,uFog.y,dist);',
+    // per-pin constants, decided once: light pool (the resting bed sits a
+    // stop under what rises out of it), shaft glow, view basis
+    'vec2 e=top.xz-uSpot.xy;',
+    'float sp=.03+.97*exp(-dot(e,e)/(uSpot.z*uSpot.z))*mix(uSpot.w,1.,smoothstep(.15,1.5,s.r/uFog.z));',
+    'sp*=.94+.12*fract(sin(dot(vec2(c),vec2(12.9898,78.233)))*43758.5453);',   // no two turned parts take the light quite alike
+    // the pointer carries a small light of its own
+    'e=top.xz-uPl.xy;sp+=uPl.z*exp(-dot(e,e)/(60.*uFog.z*uFog.z));',
+    'vQ=qd;vD=vec4(len,px,cu,fog);vL=vec4(L.r*sp,L.g,L.a*sp,sp);',
+    'float ex=len/max(cu,.05);',                 // how much of this pin stands clear of the ones in front
+    'vG=vec4(smoothstep(.5,3.2,ex),rt.x,rt.z,smoothstep(1.,1.6,ex));vVd=vd;',
+    // a pin the fog has fully taken draws nothing
+    'gl_Position=fog>.996?vec4(2.,2.,2.,1.):uVP*vec4(top+rt*qd.x+up*qd.y,1.);}',
+  ].join('\n');
+
+  var PIN_FS = HEAD + [
+    'in vec2 vQ;flat in vec4 vD,vL,vG;flat in vec3 vVd;out vec4 o;',
+    'const float RB=.455,RS=.11;',       // bead · shaft radii (pitch = 1)
+    // key softbox, cool fill, amber strip: direction + the rectangle's two axes
+    'const vec3 LK=vec3(-.8287,.4662,-.3108),KT=vec3(-.3512,0.,.9363),KB=vec3(.4365,.8851,.1637);',
+    'const vec3 LF=vec3(.6202,.6202,.4802),FT=vec3(.6122,0.,-.7907),FB=vec3(-.4904,.7844,-.3797);',
+    'const vec3 LA=vec3(.7509,.1602,-.6407),AT=vec3(-.6491,0.,-.7607),AB=vec3(-.1219,.9871,.1040);',
+    'const vec3 KC=vec3(1.,.95,.86),FC=vec3(.42,.56,.86),AM=vec3(1.,.62,.26);',
+    // a soft rectangular light at infinity: half-size hs (tan units), edge softness sf
+    'float box(vec3 d,vec3 D,vec3 T,vec3 B,vec2 hs,float sf){',
+    'float k=dot(d,D);vec2 q=vec2(dot(d,T),dot(d,B))/max(k,.001);',
+    'vec2 e=smoothstep(hs+sf,hs-sf,abs(q));return e.x*e.y*step(0.,k);}',
+    // the studio a polished part mirrors (K key, F fill, ao occlusion, sp pool)
+    'vec3 studio(vec3 R,float K,float ao,float F,float sp,float sf){',
+    'vec3 c=(vec3(.008,.009,.012)+vec3(.40,.41,.44)*smoothstep(-.18,.62,R.y)*sp)*ao;',  // tent: soft light from above
+    'c+=KC*(8.*box(R,LK,KT,KB,vec2(.30,.20),.03+sf)+1.9*pow(max(dot(R,LK),0.),7.))*K;',
+    'c+=FC*(4.2*box(R,LF,FT,FB,vec2(.20,.42),.06+sf)+.6*pow(max(dot(R,LF),0.),6.))*F;',
+    'c+=AM*2.2*box(R,LA,AT,AB,vec2(.42,.06),.04+sf)*sp;',
+    'return c;}',
+    'void main(){',
+    'float len=vD.x,px=vD.y,cu=vD.z;',
+    'vec3 vd=vVd,rt=vec3(vG.y,0.,vG.z),up=cross(rt,vd),th=vec3(-rt.z,0.,rt.x);',
+    'float d=length(vQ);',
+    // coverage of each part (analytic anti-aliasing)
+    'float cb=clamp(.5-(d-RB)/px,0.,1.);',
+    'float lo=clamp(.5+(vQ.y+len)/px,0.,1.);',   // above the foot of the visible shaft
+    // ferrule profile: flange, cut groove, barrel, taper to the shaft (ya 0 → 1)
+    'float y0=-.36*cu,y1=-.90*cu,ya=(y0-vQ.y)/(y0-y1);',
+    'float rp=mix(mix(mix(.33,.21,smoothstep(.12,.17,ya)),.275,smoothstep(.26,.31,ya)),RS,smoothstep(.72,1.,ya));',
+    'float cc=clamp(.5-(abs(vQ.x)-rp)/px,0.,1.)*clamp(.5+(y0-vQ.y)/px,0.,1.)*clamp(.5+(vQ.y-y1)/px,0.,1.)*lo;',
+    'float cs=clamp(.5-(abs(vQ.x)-RS)/px,0.,1.)*step(vQ.y,0.)*lo;',
+    'float al=max(cb,max(cc,cs));',
+    'if(al<.004)discard;',
+    'float K=vL.r,ao=vL.g,F=vL.b,sp=vL.a,gl=vG.x;',
+    'vec3 col=vec3(0.),n;',
+    // only the part this pixel actually shows is shaded
+    'if(cb<.999){',
+    'float up01=clamp((vQ.y+len)/max(cu,.05),0.,40.),sx,cz,kk,kf;',    // height above the foot of the visible shaft
+    // a turned cylinder answers a light with one streak down its length (ak key, af fill)
+    'vec3 hk=LK-vd,hf=LF-vd;',
+    'vec2 ak=normalize(vec2(dot(rt,hk),dot(th,hk)+.9)),af=normalize(vec2(dot(rt,hf),dot(th,hf))+1e-4);',   // +.9: turned toward the camera, off the rod's edge
+    'if(vG.w>0.){',
+    // shaft: a slim satin-steel rod — a key line, a cool one, dark further down
+    'sx=clamp(vQ.x/RS,-1.,1.);cz=sqrt(1.-sx*sx);',
+    'kk=max(sx*ak.x+cz*ak.y,0.);kf=max(sx*af.x+cz*af.y,0.);',
+    'col=vec3(.44,.45,.48)*((.01+.07*sp*ao)*(.3+.7*cz)+KC*K*(.12*kk+2.0*pow(kk,12.))+FC*F*(.04*kf+.22*pow(kf,10.)))*mix(.10,1.,smoothstep(-.3,2.6,up01));',
+    'col+=AM*gl*.20*exp(-up01/.9)*(.25+.75*cz);',       // what little the base throws back up
+    'if(cc>0.){',
+    // ferrule: gold; a lit flange lip and a dark groove, each ≥ 1px
+    'sx=clamp(vQ.x/rp,-1.,1.);cz=sqrt(1.-sx*sx);',
+    'kk=max(sx*ak.x+cz*ak.y,0.);kf=max(sx*af.x+cz*af.y,0.);',
+    'float gw=max(.06,px/(y0-y1)*.8);',
+    'vec3 cg=vec3(1.,.74,.40)*((.03+.34*sp*ao)*(.35+.65*cz)+KC*K*(.34*kk+3.0*pow(kk,10.))+FC*F*(.08*kf+.3*pow(kf,8.)));',
+    'cg*=1.-.78*exp(-(ya-.21)*(ya-.21)/(gw*gw));',
+    'cg+=vec3(1.,.86,.58)*(.38*K+.08*ao*sp)*exp(-ya*ya/(gw*gw*1.4))*(.35+.65*cz);',
+    'col=mix(col,cg+AM*gl*.05,cc);}',
+    '}',
+    // a seated pin shows only slivers of ferrule: one highlight line will do
+    'if(vG.w<1.){',
+    'sx=clamp(vQ.x/(cc>0.?rp:RS),-1.,1.);cz=sqrt(1.-sx*sx);kk=max(sx*ak.x+cz*ak.y,0.);',
+    'col=mix(mix(vec3(.05,.052,.06),vec3(1.,.74,.40),cc)*((.02+.2*sp)*ao+KC*K*(.3*kk+1.6*pow(kk,6.))),col,vG.w);}',
+    '}',
+    'if(cb>0.){',
+    // bead: satin steel sphere
+    'n=(vQ.x*rt+vQ.y*up-sqrt(max(RB*RB-d*d,0.))*vd)/RB;',
+    'vec3 R=reflect(vd,n);float fr=pow(clamp(1.-dot(n,-vd),0.,1.),5.);',   // clamped: pow of a negative base is undefined
+    'float lh=mix(.30,1.,smoothstep(-.75,.45,n.y));',      // beads touch: their lower halves sit in each other's shade
+    'vec3 bd=studio(R,K,ao*lh,F*lh,sp,px*.6);',
+    // beads mirror each other: the reflected ray against the neighbour on its
+    // dominant grid axis (assumed level) — only where a bead is big enough
+    'if(px<.088){vec3 q=n*RB-(abs(R.x)>abs(R.z)?vec3(sign(R.x),0.,0.):vec3(0.,0.,sign(R.z)));',
+    'float b=dot(q,R),e=b*b-dot(q,q)+RB*RB;',
+    'if(e>0.&&b<0.)bd=mix(bd,studio(reflect(R,(q+R*(-b-sqrt(e)))/RB),K,ao,F*.5,sp,.1)*.62,smoothstep(0.,.012+px*.25,e)*smoothstep(.088,.072,px)*(1.-gl));}',
+    'bd=bd*mix(vec3(.80,.78,.74),vec3(1.),fr*.6)+vec3(.035,.04,.05)*fr*sp*ao;',   // + a rim that draws each sphere out of its neighbours
+    'bd+=AM*gl*.10*max(-n.y,0.);',
+    'col=mix(col,bd,cb);}',
+    'col=mix(col,vec3(.014,.014,.017),vD.w);',
+    'o=vec4(col*al,al);}',
+  ].join('\n');
+
+  var COPY_FS = HEAD + 'in vec2 vUv;out vec4 o;uniform sampler2D uTex;void main(){o=vec4(texture(uTex,vUv).rgb,1.);}';
+  var BLUR_FS = HEAD + [
+    'in vec2 vUv;out vec4 o;uniform sampler2D uTex;uniform vec2 uDir;',
+    'void main(){vec3 c=texture(uTex,vUv).rgb*.227027;',
+    'vec2 o1=uDir*1.3846154,o2=uDir*3.2307692;',
+    'c+=texture(uTex,vUv+o1).rgb*.3162162;c+=texture(uTex,vUv-o1).rgb*.3162162;',
+    'c+=texture(uTex,vUv+o2).rgb*.0702703;c+=texture(uTex,vUv-o2).rgb*.0702703;',
+    'o=vec4(c,1.);}',
+  ].join('\n');
+  // composite: focus (analytic — the bed is a plane), bloom, grade
+  var COMP_FS = HEAD + GRADE_FN + [
+    'in vec2 vUv;out vec4 o;',
+    'uniform sampler2D uScene,uB0,uB1,uB2;uniform vec3 uEye,uF,uR,uU;uniform vec2 uTan;',
+    'uniform float uT,uExposure,uBloomAmt,uDof,uFoc;',
+    'void main(){',
+    'vec2 nd=vUv*2.-1.;',
+    'vec3 rd=normalize(uF+uR*nd.x*uTan.x+uU*nd.y*uTan.y);',
+    'float t=rd.y<-.001?-uEye.y/rd.y:1e4;',
+    'float coc=clamp(abs(t-uFoc)/uFoc*uDof,0.,1.);',
+    'vec3 c=texture(uScene,vUv).rgb,b0=texture(uB0,vUv).rgb,b1=texture(uB1,vUv).rgb,b2=texture(uB2,vUv).rgb;',
+    'c=mix(c,b0,smoothstep(0.,.5,coc));c=mix(c,b1,smoothstep(.4,1.,coc));',
+    'c+=max(b0*.3+b1*.4+b2*.5-.05,0.)*uBloomAmt;',
+    'o=vec4(grade(c*uExposure,nd,gl_FragCoord.xy,uT),1.);}',
+  ].join('\n');
+
+  var POINT_VS = HEAD + [
+    'layout(location=0) in vec3 aPos;layout(location=1) in float aSize;layout(location=2) in float aAlpha;layout(location=3) in float aWarm;',
+    'uniform mat4 uProj;uniform mat3 uRot;uniform float uPx;',
+    'out float vA;out float vWarm;',
+    'void main(){vec3 p=uRot*aPos+vec3(0.,0.,-4.);gl_Position=uProj*vec4(p,1.);',
+    'gl_PointSize=clamp(aSize*uPx/max(.4,-p.z),.75,7.);vA=aAlpha;vWarm=aWarm;}',
+  ].join('\n');
+  var POINT_FS = HEAD + [
+    'in float vA;in float vWarm;out vec4 o;',
+    'void main(){float a=smoothstep(.5,.06,distance(gl_PointCoord,vec2(.5)))*vA*.85;',
+    'o=vec4(mix(vec3(.55,.70,.92),vec3(1.,.86,.62),vWarm)*a,1.);}',
+  ].join('\n');
+
+  /* ---------------- programs ----------------
+     Compile and link are only started here; with KHR_parallel_shader_compile
+     nothing waits on them (boot polls progsDone()), so a first visit does not
+     stall for the length of a shader compile. */
+  var progs = [], PSC = null;
+  function prog(vs, fs) {
+    var o = { p: gl.createProgram(), u: {}, s: [] };
+    [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]].forEach(function (d) {
+      var s = gl.createShader(d[0]);
+      gl.shaderSource(s, d[1]); gl.compileShader(s); gl.attachShader(o.p, s);
+      o.s.push(s);
     });
-    endObj();
-  }
-
-  // slimmed 2026-07-09 (凜空: machine too heavy) — blade-like ring sections,
-  // smaller matte pivots; camera pulled back in the KF table below
-  var R_OUT = 1.14, R_IN = 0.76, R_CORE = 0.335;
-  var T_OUT = 0.065, H_OUT = 0.19, T_IN = 0.05, H_IN = 0.11;
-  if (!INNER) {
-    buildRing('out', R_OUT, groovedProfile(T_OUT, H_OUT, 0.016, 0.07, 0.018), 112);
-    buildRing('in', R_IN, chamferProfile(T_IN, H_IN, 0.012), 96);
-    var bossOuterEdge = R_OUT - T_OUT / 2 + 0.01;
-    buildBox('bossPX', (bossOuterEdge - 0.065), 0, 0, 0.14, 0.12, 0.10, 4);
-    buildBox('bossNX', -(bossOuterEdge - 0.065), 0, 0, 0.14, 0.12, 0.10, 4);
-    var pinOut = bossOuterEdge - 0.12, pinIn = R_IN + T_IN / 2 - 0.01;
-    buildBox('pinPX', (pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.042, 0.042, 4);
-    buildBox('pinNX', -(pinOut + pinIn) / 2, 0, 0, pinOut - pinIn + 0.02, 0.042, 0.042, 4);
-    buildCore('coreShell', 'coreGlow', R_CORE);
-  }
-
-  /* SDF-baked vertex AO — rings approximated as shells (rotation-invariant),
-     each ring uses its exact torus against itself */
-  function bakeAO() {
-    function sdShell(p, R, th) { return Math.abs(Math.hypot(p[0], p[1], p[2]) - R) - th; }
-    function sdTorus(p, R, tr) { return Math.hypot(Math.hypot(p[0], p[2]) - R, p[1]) - tr; }
-    function sdSphere(p, r) { return Math.hypot(p[0], p[1], p[2]) - r; }
-    var TUBE_OUT = Math.hypot(T_OUT, H_OUT) / 2 * 0.9;
-    var TUBE_IN = Math.hypot(T_IN, H_IN) / 2 * 0.9;
-    var n = pos.length / 3, ao = new Float32Array(n);
-    var RADII = [0.035, 0.08, 0.16, 0.30, 0.5];
-    for (var name in objects) {
-      var o = objects[name];
-      var selfOut = name === 'out', selfIn = name === 'in';
-      var isCore = name === 'coreShell' || name === 'coreGlow';
-      for (var i = o.start; i < o.start + o.count; i++) {
-        var px = pos[i * 3], py = pos[i * 3 + 1], pz = pos[i * 3 + 2];
-        var nx = nrm[i * 3], ny = nrm[i * 3 + 1], nz = nrm[i * 3 + 2];
-        var a = 1, w = 0.72;
-        for (var k = 0; k < RADII.length; k++) {
-          var r = RADII[k];
-          var q = [px + nx * r, py + ny * r, pz + nz * r];
-          var d = 1e9;
-          d = Math.min(d, selfOut ? sdTorus(q, R_OUT, TUBE_OUT) : sdShell(q, R_OUT, TUBE_OUT));
-          d = Math.min(d, selfIn ? sdTorus(q, R_IN, TUBE_IN) : sdShell(q, R_IN, TUBE_IN));
-          if (!isCore) d = Math.min(d, sdSphere(q, R_CORE));
-          a -= Math.max(0, (r - Math.max(d, 0)) / r) * w;
-          w *= 0.6;
-        }
-        ao[i] = Math.pow(Math.min(1, Math.max(0.18, a)), 1.5);
-      }
-    }
-    return ao;
-  }
-  var aoArr = INNER ? new Float32Array(0) : bakeAO();
-  var NV = pos.length / 3, MESH_STRIDE = 9;
-  var meshData = new Float32Array(NV * MESH_STRIDE);
-  for (var vi = 0; vi < NV; vi++) {
-    meshData[vi * 9] = pos[vi * 3]; meshData[vi * 9 + 1] = pos[vi * 3 + 1]; meshData[vi * 9 + 2] = pos[vi * 3 + 2];
-    meshData[vi * 9 + 3] = nrm[vi * 3]; meshData[vi * 9 + 4] = nrm[vi * 3 + 1]; meshData[vi * 9 + 5] = nrm[vi * 3 + 2];
-    meshData[vi * 9 + 6] = aoArr[vi]; meshData[vi * 9 + 7] = typ[vi]; meshData[vi * 9 + 8] = rnd[vi];
-  }
-  pos = nrm = typ = rnd = aoArr = null;
-
-  /* -------------- particles (L2 accretion) + stars (L0) -------------- */
-  // allocate desktop count; drawn count follows live canvas size (applySize)
-  var NP = HOME ? 640 : 0;
-  var NP_NARROW = HOME ? 340 : 0;
-  var drawNP = NP;
-  var NS = 140;
-  var P_STRIDE = 6; // x y z size alpha warm
-  var pointData = new Float32Array((NP + NS) * P_STRIDE);
-  var part = []; // simulation state
-  (function buildParticles() {
-    for (var i = 0; i < NP; i++) {
-      // orbital plane basis: two inclined accretion bands + jitter
-      var band = i % 2 ? 0.42 : -0.36;
-      var tilt = band + (Math.random() - 0.5) * 0.22;
-      var yaw = (i % 2 ? 0.35 : 2.1) + (Math.random() - 0.5) * 0.5;
-      var cy = Math.cos(tilt), sy = Math.sin(tilt);
-      var cw = Math.cos(yaw), sw = Math.sin(yaw);
-      // u = plane X axis, v = plane Z axis, n = plane normal (rotZ(tilt)·rotY(yaw))
-      var u = [cw * cy, sy, -sw * cy];
-      var n = [-cw * sy, cy, sw * sy];
-      var v = [sw, 0, cw];
-      part.push({
-        u: u, v: v, n: n,
-        r: 1.35 + Math.random() * 1.05,
-        phi: Math.random() * Math.PI * 2,
-        y0: (Math.random() - 0.5) * 0.30,
-        size: 0.010 + Math.random() * 0.014,
-        al: 0.10 + Math.random() * 0.22,
-        warm: Math.random() < 0.80 ? 1 : 0,
-        tw: Math.random() * Math.PI * 2,
-        age: 1,
-        sx: (Math.random() - 0.5) * 7, sy: (Math.random() - 0.5) * 7, sz: (Math.random() - 0.5) * 7,
-        st: Math.random(), // intro stagger
-      });
-    }
-    for (var s = 0; s < NS; s++) {
-      var th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
-      var rr = 7 + Math.random() * 3.2;
-      var o = (NP + s) * P_STRIDE;
-      pointData[o] = rr * Math.sin(ph) * Math.cos(th);
-      pointData[o + 1] = rr * Math.cos(ph) * 0.72;
-      pointData[o + 2] = rr * Math.sin(ph) * Math.sin(th);
-      pointData[o + 3] = 0.05 + Math.random() * 0.075;
-      pointData[o + 4] = 0.035 + Math.random() * 0.09;
-      pointData[o + 5] = Math.random() < 0.75 ? 0.85 : 0.15;
-    }
-  })();
-
-  /* ---------------- shaders (GLSL 1/3 via preamble) ---------------- */
-  var SCENE_VS =
-    'ATTR vec3 aPos;ATTR vec3 aNrm;ATTR float aAO;ATTR float aType;ATTR float aRnd;' +
-    'uniform mat4 uProj;uniform mat3 uRot;uniform vec3 uLoc;uniform vec3 uCam;' +
-    'VARYO vec3 vN;VARYO vec3 vP;VARYO vec3 vView;VARYO float vAO;VARYO float vType;VARYO float vRnd;' +
-    'void main(){' +
-    'vec3 p=uRot*aPos+uLoc;vP=p;vView=p+uCam;' +
-    'vN=uRot*aNrm;vAO=aAO;vType=aType;vRnd=aRnd;' +
-    'gl_Position=uProj*vec4(vView,1.0);}';
-
-  var TONE_FN =
-    'vec3 aces(vec3 x){return clamp(x*(2.51*x+0.03)/(x*(2.43*x+0.59)+0.14),0.0,1.0);}' +
-    'float hsh(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}';
-
-  // the film grade, defined once and shared by the pipeline composite and the
-  // WebGL1/direct scene shader — both paths must stay on the same film stock
-  var GRADE_FN = TONE_FN +
-    'vec3 grade(vec3 c,vec2 v,vec2 fc,float t){' +
-    'c=aces(c);' +
-    'c=pow(c,vec3(1.06));' +                     // sink the shadows a touch
-    'c+=vec3(0.004,0.007,0.014)*(1.0-c);' +      // shadow blue-shift (film feel)
-    'c*=1.0-0.30*dot(v*0.62,v*0.62);' +          // vignette
-    'c+=(hsh(fc+fract(t)*7.0)-0.5)*0.008;' +     // dither vs banding
-    'return c;}';
-
-  var SCENE_FS =
-    'VARYI vec3 vN;VARYI vec3 vP;VARYI vec3 vView;VARYI float vAO;VARYI float vType;VARYI float vRnd;' +
-    'uniform float uT;uniform float uCoreBoost;uniform float uAOMix;uniform float uEnvBoost;' +
-    'uniform float uSigOn;uniform float uSigPhase;' +
-    '\n#ifdef DIRECT\nuniform vec2 uRes;uniform float uExposure;\n' + GRADE_FN + '\n#endif\n' +
-    // analytic studio: key milk light (upper left) + steel-blue fill (right) + top rim
-    'vec3 env(vec3 d,float ex){' +
-    'vec3 c=vec3(0.016,0.019,0.027);' +
-    'c+=vec3(1.00,0.95,0.86)*2.7*pow(max(dot(d,normalize(vec3(-0.52,0.70,-0.44))),0.0),ex);' +
-    'c+=vec3(0.40,0.56,0.90)*1.15*pow(max(dot(d,normalize(vec3(0.86,-0.06,0.30))),0.0),ex*1.5);' +
-    'c+=vec3(0.90,0.95,1.00)*1.5*pow(max(dot(d,normalize(vec3(0.05,0.97,0.12))),0.0),ex*3.2);' +
-    'return c;}' +
-    'void main(){' +
-    'vec3 N=normalize(vN);vec3 V=normalize(-vView);float t=vType;vec3 col;' +
-    // emissive = core glow (type 3) only; type-4 bosses/pins went matte in the
-    // 2026-07-09 slimming ruling (supersedes the C3 glowing-pivot look)
-    'if(t>2.5&&t<3.5){' +
-    'float th=0.75+0.25*sin(uT*0.8+vRnd*6.2831);' +
-    'col=vec3(1.0,0.80,0.52)*2.25*th*uCoreBoost;' +
-    '}else{' +
-    // t: 0 ring body / 1 chamfer facet / 2 core shell / 4 matte boss+pin
-    'vec3 albedo=t<0.5?vec3(0.040,0.040,0.043):t<1.5?vec3(0.055,0.056,0.060):t<2.5?vec3(0.020,0.020,0.024):vec3(0.030,0.030,0.034);' +
-    'float rough=t<0.5?0.40:t<1.5?0.20:t<2.5?0.13:0.45;' +
-    'rough+=(vRnd-0.5)*0.06;' +
-    'vec3 R=reflect(-V,N);' +
-    'float ndv=max(dot(N,V),0.0);' +
-    'float fr=0.06+0.94*pow(1.0-ndv,5.0);' +
-    'float ex=mix(64.0,6.0,rough);' +
-    'float ao=mix(vAO,1.0,uAOMix);' +
-    'col=albedo*env(N,2.1)*ao*uEnvBoost;' +
-    'col+=env(R,ex)*mix(0.06,0.9,fr)*((t>0.5&&t<1.5)?0.60:0.42)*(0.35+0.65*ao)*uEnvBoost;' +
-    'float dl=max(dot(N,-normalize(vP)),0.0);' +
-    'float spill=0.55/(0.18+dot(vP,vP)*2.2);' +
-    'col+=vec3(1.0,0.82,0.55)*dl*spill*mix(1.0,ao,0.45)*uCoreBoost;' +
-    'if(t>0.5&&t<1.5&&uSigOn>0.001){' +      // signal light traveling along chamfer facets
-    'float f=fract(vRnd-uSigPhase);' +
-    'float bd=min(f,1.0-f);' +
-    'col+=vec3(1.0,0.82,0.55)*smoothstep(0.03,0.0,bd)*1.2*uSigOn;}' +
-    'float fog=smoothstep(2.4,5.4,-vView.z);' +
-    'col=mix(col,vec3(0.030),fog*0.55);}' +
-    '\n#ifdef DIRECT\n' +
-    'col=grade(col*uExposure,gl_FragCoord.xy/uRes*2.0-1.0,gl_FragCoord.xy,uT);' +
-    '\n#endif\n' +
-    'FRAGOUT=vec4(col,1.0);}';
-
-  var POINT_VS =
-    'ATTR vec3 aPos;ATTR float aSize;ATTR float aAlpha;ATTR float aWarm;' +
-    'uniform mat4 uProj;uniform mat3 uRot;uniform vec3 uCam;uniform float uPx;' +
-    'VARYO float vA;VARYO float vWarm;' +
-    'void main(){' +
-    'vec3 p=uRot*aPos+uCam;' +
-    'gl_Position=uProj*vec4(p,1.0);' +
-    'gl_PointSize=clamp(aSize*uPx/max(0.4,-p.z),0.75,7.0);' +
-    'vA=aAlpha;vWarm=aWarm;}';
-
-  var POINT_FS =
-    'VARYI float vA;VARYI float vWarm;' +
-    'void main(){' +
-    'float d=distance(gl_PointCoord,vec2(0.5));' +
-    'float a=smoothstep(0.5,0.06,d)*vA;' +
-    '\n#ifdef DIRECT\na*=0.85;\n#endif\n' +
-    'vec3 c=mix(vec3(0.55,0.70,0.92),vec3(1.0,0.86,0.62),vWarm);' +
-    'FRAGOUT=vec4(c*a,1.0);}';
-
-  var QUAD_VS = 'ATTR vec2 p;VARYO vec2 vUv;void main(){vUv=p*0.5+0.5;gl_Position=vec4(p,0.0,1.0);}';
-  var BRIGHT_FS =
-    'VARYI vec2 vUv;uniform sampler2D uTex;' +
-    'void main(){vec3 c=TEX(uTex,vUv).rgb;' +
-    'float l=dot(c,vec3(0.2126,0.7152,0.0722));' +
-    'FRAGOUT=vec4(c*smoothstep(1.05,2.1,l),1.0);}';
-  var BLUR_FS =
-    'VARYI vec2 vUv;uniform sampler2D uTex;uniform vec2 uDir;' +
-    'void main(){vec3 c=TEX(uTex,vUv).rgb*0.227027;' +
-    'vec2 o1=uDir*1.3846154,o2=uDir*3.2307692;' +
-    'c+=TEX(uTex,vUv+o1).rgb*0.3162162;c+=TEX(uTex,vUv-o1).rgb*0.3162162;' +
-    'c+=TEX(uTex,vUv+o2).rgb*0.0702703;c+=TEX(uTex,vUv-o2).rgb*0.0702703;' +
-    'FRAGOUT=vec4(c,1.0);}';
-  var COMP_FS =
-    'VARYI vec2 vUv;' +
-    'uniform sampler2D uScene;uniform sampler2D uB0;uniform sampler2D uB1;uniform sampler2D uB2;' +
-    'uniform float uT;uniform vec2 uRes;uniform float uExposure;uniform float uBloomAmt;' +
-    'uniform vec2 uGlowUV;uniform float uGlowAmt;' +
-    GRADE_FN +
-    'void main(){' +
-    'vec3 c=TEX(uScene,vUv).rgb;' +
-    'c+=(TEX(uB0,vUv).rgb*0.42+TEX(uB1,vUv).rgb*0.55+TEX(uB2,vUv).rgb*0.50)*uBloomAmt;' +
-    'vec2 q=vUv-uGlowUV;q.x*=uRes.x/uRes.y;' +          // faint warm stage glow behind the machine
-    'c+=vec3(0.055,0.047,0.038)*exp(-dot(q,q)*3.2)*uGlowAmt;' +
-    'c=grade(c*uExposure,vUv*2.0-1.0,gl_FragCoord.xy,uT);' +
-    'FRAGOUT=vec4(c,1.0);}';
-
-  /* ---------------- GL bootstrap + capability ladder ---------------- */
-  var gl = null, isGL2 = false, MODE = null;
-  function freshCanvas() {
-    var c2 = document.createElement('canvas');
-    c2.id = canvas.id;
-    c2.setAttribute('aria-hidden', 'true');
-    var i, ATTRS = ['data-l-play', 'data-l-pause'];
-    for (i = 0; i < ATTRS.length; i++) {
-      var v = canvas.getAttribute(ATTRS[i]);
-      if (v) c2.setAttribute(ATTRS[i], v);
-    }
-    canvas.replaceWith(c2);
-    canvas = c2;
-  }
-  (function glBoot() {
-    var attrs = { antialias: false, alpha: false, depth: true, stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: STILL };
-    try { gl = canvas.getContext('webgl2', attrs); } catch (e) { gl = null; }
-    if (gl) {
-      var extF = gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float');
-      // Inner pages only draw a starfield. Keep WebGL2 shader support, but use
-      // the direct path so they never allocate or composite an off-screen FBO.
-      if (extF) { isGL2 = true; MODE = INNER ? 'direct' : 'pipe'; return; }
-      gl = null; freshCanvas(); // context type is claimed per-canvas — need a fresh node for WebGL1
-    }
-    var attrs1 = { antialias: true, alpha: false, depth: true, preserveDrawingBuffer: STILL };
-    try {
-      gl = canvas.getContext('webgl', attrs1) || canvas.getContext('experimental-webgl', attrs1);
-    } catch (e) { gl = null; }
-    if (gl) MODE = 'direct';
-    else MODE = '2d';
-  })();
-
-  /* ---------------- 2D last-resort static frame ---------------- */
-  function static2D() {
-    freshCanvas();
-    var ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    var dpr = Math.min(devicePixelRatio || 1, 2);
-    var w = canvas.clientWidth || innerWidth || 1024, h = canvas.clientHeight || innerHeight || 768;
-    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = '#050507'; ctx.fillRect(0, 0, w, h);
-    var cx = w * (w < 700 ? 0.5 : 0.62), cy = h * 0.48, R = Math.min(w, h) * 0.30;
-    var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.6);
-    g.addColorStop(0, 'rgba(232,180,120,0.18)'); g.addColorStop(1, 'rgba(232,180,120,0)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-    ctx.globalCompositeOperation = 'lighter';
-    for (var i = 0; i < part.length; i++) {
-      var p = part[i];
-      var x = p.u[0] * p.r * Math.cos(p.phi) + p.v[0] * p.r * Math.sin(p.phi);
-      var y = p.u[1] * p.r * Math.cos(p.phi) + p.v[1] * p.r * Math.sin(p.phi) + p.n[1] * p.y0;
-      ctx.beginPath();
-      ctx.arc(cx + x * R * 0.7, cy - y * R * 0.7, Math.max(0.5, p.size * 90), 0, 6.2831853);
-      ctx.fillStyle = p.warm ? 'rgba(240,216,180,' + p.al + ')' : 'rgba(150,180,220,' + p.al + ')';
-      ctx.fill();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-  }
-  if (MODE === '2d') {
-    window.__scene = { mode: '2d' };
-    static2D();
-    // main resize handler never registers on this path — repaint here
-    var rT2 = 0;
-    addEventListener('resize', function () {
-      clearTimeout(rT2); rT2 = setTimeout(static2D, 150);
-    }, { passive: true });
-    return;
-  }
-
-  /* ---------------- programs / buffers ---------------- */
-  var VERT_PRE = isGL2 ? '#version 300 es\n#define ATTR in\n#define VARYO out\n'
-    : '#define ATTR attribute\n#define VARYO varying\n';
-  var FRAG_PRE = isGL2 ? '#version 300 es\nprecision highp float;\n#define VARYI in\nout vec4 FRAGOUT;\n#define TEX texture\n'
-    : 'precision highp float;\n#define VARYI varying\n#define FRAGOUT gl_FragColor\n#define TEX texture2D\n';
-
-  var progs = [];
-  function prog(vs, fs, attrs) {
-    function sh(type, src) {
-      var s = gl.createShader(type);
-      gl.shaderSource(s, src); gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'shader');
-      return s;
-    }
-    var p = gl.createProgram();
-    gl.attachShader(p, sh(gl.VERTEX_SHADER, VERT_PRE + vs));
-    gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FRAG_PRE + fs));
-    for (var i = 0; i < attrs.length; i++) gl.bindAttribLocation(p, i, attrs[i]);
-    gl.linkProgram(p);
-    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) || 'link');
-    var u = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
-    for (var j = 0; j < n; j++) { var inf = gl.getActiveUniform(p, j); u[inf.name.replace(/\[0\]$/, '')] = gl.getUniformLocation(p, inf.name); }
-    var o = { p: p, u: u, nAttr: attrs.length };
+    gl.linkProgram(o.p);
     progs.push(o);
     return o;
   }
+  function progsDone() {
+    if (PSC) for (var i = 0; i < progs.length; i++) if (!gl.getProgramParameter(progs[i].p, PSC.COMPLETION_STATUS_KHR)) return false;
+    return true;
+  }
+  // link status + uniform table (this is the call that blocks without the extension)
+  function progsFinish() {
+    progs.forEach(function (o) {
+      var p = o.p, j, n, inf;
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) || gl.getShaderInfoLog(o.s[0]) || gl.getShaderInfoLog(o.s[1]) || 'link');
+      n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+      for (j = 0; j < n; j++) { inf = gl.getActiveUniform(p, j); o.u[inf.name.replace('[0]', '')] = gl.getUniformLocation(p, inf.name); }
+    });
+  }
 
-  var P = {}, meshBuf = null, pointBuf = null, quadBuf = null, blackTex = null;
-  var enabledAttrs = 0;
-  function setAttrCount(n) {
-    var i;
-    for (i = enabledAttrs; i < n; i++) gl.enableVertexAttribArray(i);
-    for (i = n; i < enabledAttrs; i++) gl.disableVertexAttribArray(i);
-    enabledAttrs = n;
-  }
-  function bindMesh() {
-    gl.bindBuffer(gl.ARRAY_BUFFER, meshBuf);
-    setAttrCount(5);
-    var S = MESH_STRIDE * 4;
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, S, 0);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, S, 12);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, S, 24);
-    gl.vertexAttribPointer(3, 1, gl.FLOAT, false, S, 28);
-    gl.vertexAttribPointer(4, 1, gl.FLOAT, false, S, 32);
-  }
-  function bindPoints() {
-    gl.bindBuffer(gl.ARRAY_BUFFER, pointBuf);
-    setAttrCount(4);
-    var S = P_STRIDE * 4;
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, S, 0);
-    gl.vertexAttribPointer(1, 1, gl.FLOAT, false, S, 12);
-    gl.vertexAttribPointer(2, 1, gl.FLOAT, false, S, 16);
-    gl.vertexAttribPointer(3, 1, gl.FLOAT, false, S, 20);
-  }
-  function bindQuad() {
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
-    setAttrCount(1);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  var P = {}, vaoQuad = null, vaoPin = null, vaoPts = null, blackTex = null;
+
+  /* inner-page stars (L0) */
+  var NS = 140, pointData = new Float32Array(NS * 6);
+  if (INNER) for (var s0 = 0; s0 < NS; s0++) {
+    var th0 = Math.random() * 6.2831853, ph0 = Math.acos(2 * Math.random() - 1), rr0 = 7 + Math.random() * 3.2, o0 = s0 * 6;
+    pointData[o0] = rr0 * Math.sin(ph0) * Math.cos(th0);
+    pointData[o0 + 1] = rr0 * Math.cos(ph0) * 0.72;
+    pointData[o0 + 2] = rr0 * Math.sin(ph0) * Math.sin(th0);
+    pointData[o0 + 3] = 0.05 + Math.random() * 0.075;
+    pointData[o0 + 4] = 0.035 + Math.random() * 0.09;
+    pointData[o0 + 5] = Math.random() < 0.75 ? 0.85 : 0.15;
   }
 
   function initGLObjects() {
-    // computed here, not at module init: a later demotion to direct mode must
-    // recompile with the in-shader grade, or direct draws ship raw linear HDR
-    var DIRECT_DEF = MODE === 'pipe' ? '' : '#define DIRECT 1\n';
-    if (!INNER) P.scene = prog(SCENE_VS, DIRECT_DEF + SCENE_FS, ['aPos', 'aNrm', 'aAO', 'aType', 'aRnd']);
-    P.points = prog(POINT_VS, DIRECT_DEF + POINT_FS, ['aPos', 'aSize', 'aAlpha', 'aWarm']);
-    if (MODE === 'pipe') {
-      if (!INNER) {
-        P.bright = prog(QUAD_VS, BRIGHT_FS, ['p']);
-        P.blur = prog(QUAD_VS, BLUR_FS, ['p']);
-      }
-      P.comp = prog(QUAD_VS, COMP_FS, ['p']);
-    }
-    if (!INNER) {
-      meshBuf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, meshBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, meshData, gl.STATIC_DRAW);
-    }
-    pointBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, pointBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, pointData, gl.DYNAMIC_DRAW);
-    quadBuf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+    var b;
+    PSC = gl.getExtension('KHR_parallel_shader_compile');
+    TQ = HOME && gl.getExtension('EXT_disjoint_timer_query_webgl2');
+    tq = null; tqOpen = false;
+    vaoQuad = gl.createVertexArray();
+    gl.bindVertexArray(vaoQuad);
+    b = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, b);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    if (MODE === 'pipe') {
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    if (INNER) {
+      P.points = prog(POINT_VS, POINT_FS);
+      vaoPts = gl.createVertexArray();
+      gl.bindVertexArray(vaoPts);
+      b = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.bufferData(gl.ARRAY_BUFFER, pointData, gl.STATIC_DRAW);
+      for (var i = 0; i < 4; i++) {
+        gl.enableVertexAttribArray(i);
+        gl.vertexAttribPointer(i, i ? 1 : 3, gl.FLOAT, false, 24, i ? 8 + i * 4 : 0);
+      }
+    } else {
+      P.form = prog(QUAD_VS, FORM_FS);
+      P.sim = prog(QUAD_VS, SIM_FS);
+      P.light = prog(QUAD_VS, LIGHT_FS);
+      P.pin = prog(PIN_VS, PIN_FS);
+      P.copy = prog(QUAD_VS, COPY_FS);
+      P.blur = prog(QUAD_VS, BLUR_FS);
+      P.comp = prog(QUAD_VS, COMP_FS);
       blackTex = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, blackTex);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+      vaoPin = gl.createVertexArray();
+      gl.bindVertexArray(vaoPin);
+      b = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, b);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, 0, 1, 0, -1, 1, 1, 1]), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     }
-    enabledAttrs = 0;
+    gl.bindVertexArray(null);
+    grid = null;
   }
 
-  /* ---------------- FBOs (pipeline mode) ---------------- */
-  var W = 0, H = 0, fbo = null, msaaOK = false;
-  function texFBO(w, h, withDepth) {
-    var t = gl.createTexture();
+  /* ---------------- targets ---------------- */
+  var W = 0, H = 0, cssW = 0, cssH = 0, fbo = null, grid = null, tier = 0;
+  var TIER_SCALE = [1, 0.8, 0.64];
+  // long-edge cap of the drawing buffer: 2200, or 3200 once the GPU has
+  // proved it has room (sharpen()) — native sharpness on dense screens
+  var EDGE = HOME ? 2200 : 1600, TQ = null, tq = null, tqOpen = false, tqN = 0, tqNs = 1e12, tqWarm = 0;
+  function texFBO(w, h, linear, check) {
+    var t = gl.createTexture(), flt = linear ? gl.LINEAR : gl.NEAREST;
     gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, flt);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, flt);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
     var f = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, f);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
-    var rb = null;
-    if (withDepth) {
-      rb = gl.createRenderbuffer();
-      gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
-      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
-      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
-    }
-    return { t: t, f: f, w: w, h: h, rb: rb };
+    // a float target the device cannot render to must fail here, loudly (the
+    // callers fall back to the plain page); asked once per set — a GPU round trip
+    if (check && !gl.isContextLost() && gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('incomplete framebuffer ' + w + 'x' + h);
+    return { t: t, f: f, w: w, h: h };
   }
-  // delete renderbuffers too — a rebuild that only frees textures/framebuffers
-  // orphans the depth/MSAA renderbuffers and leaks GPU memory on every resize
-  function delFBO(o) {
-    if (!o) return;
-    gl.deleteTexture(o.t);
-    gl.deleteFramebuffer(o.f);
-    if (o.rb) gl.deleteRenderbuffer(o.rb);
+  function delSet(set) {
+    for (var k in set) if (set[k] && set[k].t) { gl.deleteTexture(set[k].t); gl.deleteFramebuffer(set[k].f); }
   }
-  // false = half-float pipeline unrenderable here → caller demotes to direct
   function buildFBOs() {
-    if (MODE !== 'pipe') return true;
-    if (fbo) {
-      delFBO(fbo.scene); delFBO(fbo.bright);
-      delFBO(fbo.b0a); delFBO(fbo.b0b); delFBO(fbo.b1a); delFBO(fbo.b1b); delFBO(fbo.b2a); delFBO(fbo.b2b);
-      if (fbo.ms) gl.deleteFramebuffer(fbo.ms);
-      if (fbo.msRbC) gl.deleteRenderbuffer(fbo.msRbC); // MSAA color/depth renderbuffers
-      if (fbo.msRbD) gl.deleteRenderbuffer(fbo.msRbD); // aren't owned by the framebuffer
-    }
-    var ms = null, msRbC = null, msRbD = null;
-    try {
-      var samples = Math.min(4, gl.getParameter(gl.MAX_SAMPLES) || 0);
-      if (!INNER && samples > 1) {
-        ms = gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, ms);
-        msRbC = gl.createRenderbuffer();
-        gl.bindRenderbuffer(gl.RENDERBUFFER, msRbC);
-        gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA16F, W, H);
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, msRbC);
-        msRbD = gl.createRenderbuffer();
-        gl.bindRenderbuffer(gl.RENDERBUFFER, msRbD);
-        gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH_COMPONENT24, W, H);
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, msRbD);
-        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-          gl.deleteFramebuffer(ms); gl.deleteRenderbuffer(msRbC); gl.deleteRenderbuffer(msRbD);
-          ms = msRbC = msRbD = null;
-        }
-      }
-    } catch (e) {
-      if (ms) gl.deleteFramebuffer(ms);
-      if (msRbC) gl.deleteRenderbuffer(msRbC);
-      if (msRbD) gl.deleteRenderbuffer(msRbD);
-      ms = msRbC = msRbD = null;
-    }
-    msaaOK = !!ms;
-    var scene = texFBO(W, H, !msaaOK && !INNER); // stars need no depth attachment
-    // check completeness on the buffer the pipeline actually renders into
-    gl.bindFramebuffer(gl.FRAMEBUFFER, scene.f);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      delFBO(scene);
-      if (ms) gl.deleteFramebuffer(ms);
-      if (msRbC) gl.deleteRenderbuffer(msRbC);
-      if (msRbD) gl.deleteRenderbuffer(msRbD);
-      fbo = null;
-      return false;
-    }
+    if (fbo) delSet(fbo);
     var w2 = Math.max(2, W >> 1), h2 = Math.max(2, H >> 1);
     var w4 = Math.max(2, W >> 2), h4 = Math.max(2, H >> 2);
     var w8 = Math.max(2, W >> 3), h8 = Math.max(2, H >> 3);
-    fbo = { ms: ms, msRbC: msRbC, msRbD: msRbD, scene: scene };
-    if (!INNER) {
-      fbo.bright = texFBO(w2, h2);
-      fbo.b0a = texFBO(w2, h2); fbo.b0b = texFBO(w2, h2);
-      fbo.b1a = texFBO(w4, h4); fbo.b1b = texFBO(w4, h4);
-      fbo.b2a = texFBO(w8, h8); fbo.b2b = texFBO(w8, h8);
-    }
+    fbo = {
+      scene: texFBO(W, H, true, 1), half: texFBO(w2, h2, true),
+      b0a: texFBO(w2, h2, true), b0b: texFBO(w2, h2, true),
+      b1a: texFBO(w4, h4, true), b1b: texFBO(w4, h4, true),
+      b2a: texFBO(w8, h8, true), b2b: texFBO(w8, h8, true),
+    };
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    return true;
   }
 
-  function demoteToDirect() {
-    MODE = 'direct';
-    for (var i = 0; i < progs.length; i++) gl.deleteProgram(progs[i].p);
-    progs = []; P = {};
-    fbo = null;
-    initGLObjects();
+  /* ---------------- camera (y up, bed = plane y 0) ---------------- */
+  var TANY = Math.tan(0.16);   // ≈18° lens: long, so the bed does not splay
+  function mkCam(yaw, el, dist) {
+    var ce = Math.cos(el);
+    var C = [dist * Math.sin(yaw) * ce, dist * Math.sin(el), dist * Math.cos(yaw) * ce];
+    var f = [-C[0] / dist, -C[1] / dist, -C[2] / dist];
+    var r = [-f[2], 0, f[0]], l = Math.hypot(r[0], r[2]); r[0] /= l; r[2] /= l;
+    return { C: C, f: f, r: r, u: [-r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1]], D: dist };
+  }
+  // screen (0..1, y down) → bed hit [x, z, distance]; null above the horizon
+  function unproj(c, sx, sy) {
+    var ax = (sx * 2 - 1) * TANY * cssW / cssH, ay = (1 - sy * 2) * TANY;
+    var dx = c.f[0] + c.r[0] * ax + c.u[0] * ay, dy = c.f[1] + c.u[1] * ay, dz = c.f[2] + c.r[2] * ax + c.u[2] * ay;
+    if (dy > -0.004) return null;
+    var t = -c.C[1] / dy;
+    return [c.C[0] + dx * t, c.C[2] + dz * t, t * Math.hypot(dx, dy, dz)];
+  }
+  var vp = new Float32Array(16);
+  function camVP(c) {
+    var fy = 1 / TANY, fx = fy * H / W, n = 1, fa = 2000, A = (fa + n) / (n - fa), Bq = 2 * fa * n / (n - fa);
+    var C = c.C, r = c.r, u = c.u, f = c.f;
+    var rc = r[0] * C[0] + r[2] * C[2], uc = u[0] * C[0] + u[1] * C[1] + u[2] * C[2], fc = f[0] * C[0] + f[1] * C[1] + f[2] * C[2];
+    vp[0] = fx * r[0]; vp[4] = 0; vp[8] = fx * r[2]; vp[12] = -fx * rc;
+    vp[1] = fy * u[0]; vp[5] = fy * u[1]; vp[9] = fy * u[2]; vp[13] = -fy * uc;
+    vp[2] = -A * f[0]; vp[6] = -A * f[1]; vp[10] = -A * f[2]; vp[14] = A * fc + Bq;
+    vp[3] = f[0]; vp[7] = f[1]; vp[11] = f[2]; vp[15] = -fc;
+    return vp;
   }
 
-  /* ---------------- projection / sizing ---------------- */
-  var FOVF = 1 / Math.tan(0.60 / 2), tier = 0;
-  var TIER_SCALE = [1, 1, 0.72];
-  function projArray(asp) {
-    return new Float32Array([FOVF / asp, 0, 0, 0, 0, FOVF, 0, 0, 0, 0, 12.1 / (0.1 - 12), -1, 0, 0, 2 * 12 * 0.1 / (0.1 - 12), 0]);
+  /* ---------------- composition: one keyframe per home section ----------------
+     el / yaw = camera, px = pin pitch on screen, sx / sy = where the subject
+     sits, spot = light-pool radius, swell = idle surface amplitude. */
+  var KF = [], LKH = [-0.9363, -0.3511], LKS = 0.5267;   // key light: horizontal direction (toward it) and slope
+  function layout() {
+    var asp = cssW / cssH, port = asp < 0.9, i, k;
+    // `ref` is the pitch the forms were composed at; the bed is finer, and
+    // U (pins per design unit) keeps every form the size it was drawn
+    var ref = port ? Math.max(9.5, Math.min(16, cssW / 38)) : Math.max(12, Math.min(19, cssH / 56));
+    var base = port ? Math.max(7.6, Math.min(12, cssW / 50)) : Math.max(11, Math.min(17, cssH / 76));
+    var U, x0, x1, z0, z1, pass;
+    // ultrawide / tall portrait: more pins wanted than the grid holds. The
+    // pitch coarsens until the bed covers the frame (8% over is overscan + fog)
+    for (pass = 0; pass < 2; pass++) {
+      U = ref / base;
+      KF = [
+        { el: 0.56, yaw: 0.30, px: base, sx: port ? 0.5 : 0.715, sy: port ? 0.84 : 0.58, exp: 1.00, dof: 1.7, swell: 0.16, spot: port ? 15 : 27, bed: 0.62, ptr: 1 },          // hero
+        { el: 0.36, yaw: 0.18, px: base * 2.6, sx: port ? 0.5 : 0.84, sy: port ? 0.93 : 1.10, exp: 0.74, dof: 1.5, swell: 0.38, spot: port ? 7 : 11, bed: 1, ptr: 0.4 },                    // statement (macro, under the sentence — not behind it)
+        { el: 0.80, yaw: 0.20, px: base * 1.07, sx: port ? 0.5 : 0.75, sy: port ? 0.96 : 0.50, exp: port ? 0.70 : 1.00, dof: 1.5, swell: 0.10, spot: port ? 16 : 30, bed: 0.62, ptr: 1 },  // pillars
+        { el: 0.95, yaw: 0.30, px: base * 0.88, sx: port ? 0.5 : 0.62, sy: 0.96, exp: 0.50, dof: 1.8, swell: 0.30, spot: 30, bed: 1, ptr: 0 },                     // work (quiet: the pool sinks below the copy)
+        { el: 0.82, yaw: 0.07, px: base * (port ? 0.72 : 0.90), sx: port ? 0.5 : 0.645, sy: port ? 0.70 : 0.55, exp: 1.15, dof: 1.2, swell: 0.08, spot: port ? 34 : 50, bed: 0.55, ptr: 1 }, // contact (finer: the wordmark needs pins)
+      ];
+      x0 = 1e9; x1 = -1e9; z0 = 1e9; z1 = -1e9;
+      for (i = 0; i < KF.length; i++) {
+        var K = KF[i];
+        K.spot *= U;
+        K.D = cssH / (2 * TANY * K.px);
+        var c = mkCam(K.yaw, K.el, K.D), h = unproj(c, K.sx, K.sy);
+        K.hx = h[0]; K.hz = h[1];
+        // glyphs lie on the bed facing this chapter's camera: right / away axes
+        var fl = Math.hypot(c.f[0], c.f[2]);
+        K.ax = [c.r[0], c.r[2], c.f[0] / fl, c.f[2] / fl];
+        K.st = 0.92 / Math.max(0.5, Math.sin(K.el));     // undo most of the vertical foreshortening
+        for (k = 0; k < 4; k++) {
+          var e = unproj(mkCam(K.yaw + 0.06, K.el, K.D), k & 1 ? 1.06 : -0.06, k & 2 ? 1.08 : -0.10) || [c.C[0], c.C[2] - 9e9, 9e9];
+          var lim = K.D * 1.62;                           // past the fog nothing reads — don't pay for it
+          if (e[2] > lim) { e[0] = c.C[0] + (e[0] - c.C[0]) * lim / e[2]; e[1] = c.C[2] + (e[1] - c.C[2]) * lim / e[2]; }
+          x0 = Math.min(x0, e[0]); x1 = Math.max(x1, e[0]); z0 = Math.min(z0, e[1]); z1 = Math.max(z1, e[1]);
+        }
+      }
+      x0 = Math.floor(x0) - 2; z0 = Math.floor(z0) - 2; x1 = Math.ceil(x1) + 2; z1 = Math.ceil(z1) + 4;
+      var over = Math.max((x1 - x0 + 1) / 340, (z1 - z0 + 1) / 310) / 1.08;
+      if (over <= 1) break;
+      base *= over;
+    }
+    var nx = Math.min(340, x1 - x0 + 1), ny = Math.min(310, z1 - z0 + 1);
+    x0 = Math.max(x0, x1 - nx + 1) | 0; z0 = Math.max(z0, z1 - ny + 1) | 0;   // if capped, keep the near / right side
+    if (grid) delSet(grid);
+    grid = { nx: nx, ny: ny, ox: x0, oz: z0, tgt: texFBO(nx, ny, false), a: texFBO(nx, ny, true, 1), b: texFBO(nx, ny, true), lt: texFBO(nx, ny, false) };
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // subjects
+    var hero = KF[0], num = KF[2], word = KF[4];
+    grid.heroR = Math.min(cssW * (port ? 0.32 : 0.175), cssH * (port ? 0.20 : 0.27)) / hero.px;
+    grid.numU = cssW * (port ? 0.76 : 0.285) / 8.6 / num.px;
+    grid.wordU = cssW * (port ? 0.70 : 0.57) / 22.6 / word.px;
+    grid.port = port; grid.U = U;
   }
-  function applySize() {
-    var dprCap = HOME ? 1.75 : 1.5;
-    var dpr = Math.min(devicePixelRatio || 1, dprCap);
+
+  function applySize(force) {
+    var dpr = Math.min(devicePixelRatio || 1, HOME ? 2 : 1.5);
     var cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight;
-    var capEdge = Math.min(1, 1600 / (Math.max(cw, ch) * dpr));
+    var capEdge = Math.min(1, EDGE / (Math.max(cw, ch) * dpr));
     var s = dpr * capEdge * TIER_SCALE[Math.min(tier, 2)];
     W = Math.max(8, Math.round(cw * s));
     H = Math.max(8, Math.round(ch * s));
-    drawNP = Math.min(cw || 9999, ch || 9999) < 700 ? NP_NARROW : NP;
     canvas.width = W; canvas.height = H;
-    if (!buildFBOs()) demoteToDirect();
-    var proj = projArray(W / H);
-    for (var i = 0; i < progs.length; i++) {
-      if (progs[i].u.uProj) { gl.useProgram(progs[i].p); gl.uniformMatrix4fv(progs[i].u.uProj, false, proj); }
-      if (progs[i].u.uPx) { gl.useProgram(progs[i].p); gl.uniform1f(progs[i].u.uPx, FOVF * H / 2); }
+    if (INNER) {
+      var fv = 1 / Math.tan(0.30);
+      gl.useProgram(P.points.p);
+      gl.uniformMatrix4fv(P.points.u.uProj, false, new Float32Array([fv * H / W, 0, 0, 0, 0, fv, 0, 0, 0, 0, 12.1 / (0.1 - 12), -1, 0, 0, 2 * 12 * 0.1 / (0.1 - 12), 0]));
+      gl.uniform1f(P.points.u.uPx, fv * H / 2);
+      return;
+    }
+    buildFBOs();
+    if (force || !grid || cw !== cssW || ch !== cssH) { cssW = cw; cssH = ch; layout(); }
+  }
+
+  /* ---------------- orchestration state ---------------- */
+  var sections = HOME ? [].slice.call(document.querySelectorAll('[data-screen-label]')) : [];
+  var pillarEls = HOME ? [].slice.call(document.querySelectorAll('.pillar')) : [];
+  var chapter = 0; // smoothed
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+  function smooth(x) { x = clamp01(x); return x * x * (3 - 2 * x); }
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+  // section tops, re-measured only when the document height changes
+  var secTops = [], pilCenters = [], measuredSH = -1;
+  function freshLayout() {
+    if (root.scrollHeight === measuredSH) return;
+    var sy = window.scrollY || 0, i, r;
+    measuredSH = root.scrollHeight;
+    secTops = []; pilCenters = [];
+    for (i = 0; i < sections.length; i++) secTops.push(sy + sections[i].getBoundingClientRect().top);
+    for (i = 0; i < pillarEls.length && i < 3; i++) {
+      r = pillarEls[i].getBoundingClientRect();
+      pilCenters.push(sy + r.top + r.height / 2);
+    }
+  }
+  // one plateau per section, blended while the next one slides in
+  function chapterTarget() {
+    freshLayout();
+    var vc = (window.scrollY || 0) + innerHeight / 2, c = 0;
+    for (var i = 1; i < secTops.length; i++) c += smooth((vc - secTops[i]) / innerHeight + 0.5);
+    return c;
+  }
+  // main.js publishes the pinned index; flowing layouts fall back to proximity
+  function pillarIndex() {
+    if (typeof window.__pillar === 'number') return window.__pillar;
+    var vc = (window.scrollY || 0) + innerHeight / 2, best = -1, bd = 1e9;
+    for (var i = 0; i < pilCenters.length; i++) {
+      var d = Math.abs(pilCenters[i] - vc);
+      if (d < bd) { bd = d; best = i; }
+    }
+    return bd < innerHeight * 0.5 ? best : -1;   // only while a pillar is actually being read
+  }
+
+  /* ---------------- interaction / lifecycle ---------------- */
+  var tmx = 0, tmy = 0, cmx = 0, cmy = 0, ptrX = -1, ptrY = -1, ptrT = -1e9;
+  var lastActive = 0, simT = 0, introT = 0;
+  var INTRO = 2.6;
+  var seen = false;
+  try { seen = sessionStorage.getItem('linku_scene') === '1'; } catch (e) { }
+  if (seen) introT = INTRO;
+  var clicks = [];
+  addEventListener('pointermove', function (e) {
+    tmx = (e.clientX / innerWidth) * 2 - 1;
+    tmy = (e.clientY / innerHeight) * 2 - 1;
+    ptrX = e.clientX; ptrY = e.clientY;
+    lastActive = ptrT = performance.now();
+  }, { passive: true });
+  addEventListener('pointerdown', function (e) {
+    if (HOME) clicks.push([e.clientX, e.clientY]);   // client px; normalised against the canvas box where it is used
+    lastActive = performance.now();
+  }, { passive: true });
+  addEventListener('scroll', function () { lastActive = performance.now(); }, { passive: true });
+
+  /* ---------------- per-frame state ---------------- */
+  var cam = null, S = null;
+  var numA = [0, 0, 0], press = 0, ptrW = [0, 0], rip = new Float32Array(16), ripN = 0, morph = [1, 0, 0, 0];
+  var trail = new Float32Array(40), trailT = 0;
+  var scrY = window.scrollY || 0, scrPh = 0, scrAmp = 0;
+  for (var r0 = 0; r0 < 4; r0++) rip[r0 * 4 + 2] = 99;
+  for (r0 = 0; r0 < 10; r0++) { trail[r0 * 4] = 1e4 + r0; trail[r0 * 4 + 2] = 99; }
+  function computeState(dt) {
+    simT += dt;
+    var pe = easeOutCubic(Math.min(1, introT / INTRO)), st = {}, k, i;
+    cmx += (tmx - cmx) * Math.min(1, dt * 2.5);
+    cmy += (tmy - cmy) * Math.min(1, dt * 2.5);
+    chapter += (chapterTarget() - chapter) * Math.min(1, dt * 5);
+    var i0 = Math.max(0, Math.min(KF.length - 2, Math.floor(chapter)));
+    var f = clamp01(chapter - i0), A = KF[i0], B = KF[i0 + 1];
+    for (k in A) if (typeof A[k] === 'number') st[k] = lerp(A[k], B[k], f);
+    // pointer parallax + a slow drift. Yaw never crosses zero (painter order)
+    cam = mkCam(Math.max(0.04, st.yaw + cmx * 0.02 + 0.012 * Math.sin(simT * 0.13)), st.el - cmy * 0.012, st.D);
+    st.exp *= pe * (0.4 + 0.6 * pe);         // up from black
+    if (cssW / cssH < 0.9) st.exp *= 0.84;      // portrait: copy crosses the bed — dim it
+    // the copy leads: the solid rises once the headline has landed, and it
+    // changes slowly enough to be looked away from
+    st.hero = clamp01(1 - chapter * 1.7) * smooth((introT - 1.05) / 1.2);
+    var seg = simT * 0.1, sk = Math.floor(seg) % 4, sf = smooth((seg - Math.floor(seg) - 0.72) / 0.28);
+    for (i = 0; i < 4; i++) morph[i] = i === sk ? 1 - sf : i === (sk + 1) % 4 ? sf : 0;
+    var pi = Math.abs(chapter - 2) < 0.5 && !grid.port ? pillarIndex() : -1;
+    for (k = 0; k < 3; k++) numA[k] = clamp01(numA[k] + dt * (k === pi ? 0.9 : -1.9));
+    st.word = clamp01((chapter - 3.3) / 0.6);
+    var active = running && performance.now() - ptrT < 2600 && ptrX >= 0, h = active ? unproj(cam, ptrX / cssW, ptrY / cssH) : null;
+    if (h) { ptrW[0] = h[0]; ptrW[1] = h[1]; }
+    // the wake: the path every 40ms; a jump or a pause starts a new stroke
+    for (i = 0; i < 10; i++) trail[i * 4 + 2] += dt;
+    trailT += dt;
+    var tdx = h ? h[0] / grid.U - trail[0] : 0, tdz = h ? h[1] / grid.U - trail[1] : 0, tdd = tdx * tdx + tdz * tdz;
+    // the pointer's dent, wake and light keep off the copy (the text column,
+    // portrait, and as much as each chapter's `ptr` allows)
+    var keep = st.ptr * (grid.port ? 0.3 : smooth((ptrX / cssW - 0.34) / 0.22));
+    if (h && trailT > 0.04 && tdd > 0.2) {
+      trail.copyWithin(4, 0, 36);
+      trail[0] = h[0] / grid.U; trail[1] = h[1] / grid.U; trail[2] = 0;
+      trail[3] = tdd < 900 && trail[6] < 0.25 ? keep : 0;
+      trailT = 0;
+    }
+    press += ((h ? 1 : 0) - press) * Math.min(1, dt * (h ? 7 : 2.2));
+    st.pl = press * keep;
+    for (i = 0; i < 4; i++) rip[i * 4 + 2] += dt;
+    while (clicks.length) {
+      var ck = clicks.pop(), hh = running ? unproj(cam, ck[0] / cssW, ck[1] / cssH) : null;
+      if (hh) { rip[ripN * 4] = hh[0] / grid.U; rip[ripN * 4 + 1] = hh[1] / grid.U; rip[ripN * 4 + 2] = 0; rip[ripN * 4 + 3] = 1.5; ripN = (ripN + 1) % 4; }
+    }
+    // scroll: phase follows position, amplitude follows speed
+    var sy = window.scrollY || 0, sv = running && dt > 0 ? (sy - scrY) / innerHeight / dt : 0;
+    scrY = sy; scrPh = sy / innerHeight * 7;
+    scrAmp += (Math.min(0.55, Math.abs(sv) * 0.4) - scrAmp) * Math.min(1, dt * (Math.abs(sv) > 0.05 ? 6 : 2.2));
+    st.spx = lerp(A.hx, B.hx, f); st.spz = lerp(A.hz, B.hz, f);
+    st.foc = Math.hypot(cam.C[0] - st.spx, cam.C[1], cam.C[2] - st.spz);
+    S = st;
+    return st;
+  }
+
+  /* ---------------- GPU passes ---------------- */
+  function quadPass(pr, dst, w, h) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dst);
+    gl.viewport(0, 0, w, h);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+  function tex(unit, t, loc) {
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.uniform1i(loc, unit);
+  }
+  function advance(st, dt) {
+    var g = grid, u = P.form.u, hero = KF[0], num = KF[2], word = KF[4], U = g.U;
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(vaoQuad);
+    gl.useProgram(P.form.p);
+    gl.uniform2f(u.uOrg, g.ox, g.oz);
+    gl.uniform1f(u.uT, simT);
+    gl.uniform1f(u.uU, U);
+    gl.uniform1f(u.uSwell, st.swell);
+    gl.uniform1f(u.uSpin, simT * 0.12);
+    gl.uniform4f(u.uHero, hero.hx / U, hero.hz / U, st.hero, g.heroR / U);
+    gl.uniform4fv(u.uMorph, morph);
+    gl.uniform4f(u.uPtr, ptrW[0] / U, ptrW[1] / U, st.pl, 0);
+    gl.uniform4fv(u.uRip, rip);
+    gl.uniform4fv(u.uTr, trail);
+    gl.uniform4f(u.uNum, num.hx / U, num.hz / U, g.numU / U, num.st);
+    gl.uniform3fv(u.uNumA, numA);
+    gl.uniform4fv(u.uAx, num.ax);
+    gl.uniform4f(u.uWord, word.hx / U, word.hz / U, g.wordU / U, st.word);
+    gl.uniform4fv(u.uAxW, word.ax);
+    gl.uniform1f(u.uWs, word.st);
+    gl.uniform2f(u.uScr, scrPh, scrAmp);
+    gl.uniform1f(u.uIn, introT < INTRO ? introT * 80 - 46 : 1e4);   // the homing pass; parked far away afterwards
+    quadPass(P.form, g.tgt.f, g.nx, g.ny);
+    gl.useProgram(P.sim.p);
+    gl.uniform1f(P.sim.u.uU, U);
+    var steps = dt > 0.02 ? 2 : 1;
+    for (var i = 0; i < steps; i++) {
+      tex(0, g.a.t, P.sim.u.uPrev);
+      tex(1, g.tgt.t, P.sim.u.uTgt);
+      gl.uniform1f(P.sim.u.uDt, dt / steps);
+      quadPass(P.sim, g.b.f, g.nx, g.ny);
+      var sw = g.a; g.a = g.b; g.b = sw;
     }
   }
 
-  /* ---------------- matrices / servo ---------------- */
   function mul3(a, b) {
     var o = new Float32Array(9);
     for (var c = 0; c < 3; c++) for (var r = 0; r < 3; r++)
@@ -725,364 +752,166 @@
   function rx(t) { var c = Math.cos(t), s = Math.sin(t); return new Float32Array([1, 0, 0, 0, c, s, 0, -s, c]); }
   function ry(t) { var c = Math.cos(t), s = Math.sin(t); return new Float32Array([c, 0, -s, 0, 1, 0, s, 0, c]); }
 
-  function servo(period, stepRad, phase) { return { t: phase, target: stepRad * 0.6, a: 0, v: 0, period: period, step: stepRad }; }
-  function servoTick(s, dt, hold) {
-    if (!hold) {
-      s.t += dt;
-      if (s.t > s.period) { s.t -= s.period; s.target += s.step; }
-    }
-    var acc = (s.target - s.a) * 16 - s.v * 6.4; // heavy, slow, slight overshoot
-    s.v += acc * dt; s.a += s.v * dt;
-    return s.a;
-  }
-  var svOut = servo(5.6, 60 * Math.PI / 180, 0);
-  var svIn = servo(8.4, -42 * Math.PI / 180, 2.6);
-
-  /* ---------------- orchestration state ---------------- */
-  // camera pulled back ~22% (2026-07-09 slimming): same right-of-text screen
-  // position (cx/cz ratios preserved), machine smaller with breathing room
-  var KF = [ // hero / statement / pillars / contact
-    { cx: 0.88, cy: -0.03, cz: -4.70, ex: 0, core: 1.00, sig: 0.06, exp: 0.92, glow: 0.85 },
-    { cx: 1.00, cy: -0.03, cz: -3.95, ex: 0, core: 1.25, sig: 0.04, exp: 0.95, glow: 1.00 },
-    { cx: 0.83, cy: 0.02, cz: -5.15, ex: 1, core: 1.00, sig: 0.12, exp: 0.88, glow: 0.70 },
-    { cx: 0.71, cy: -0.04, cz: -4.35, ex: 0, core: 1.10, sig: 0.25, exp: 0.94, glow: 0.85 },
-  ];
-  var sections = HOME ? [].slice.call(document.querySelectorAll('[data-screen-label]')) : [];
-  var pillarEls = HOME ? [].slice.call(document.querySelectorAll('.pillar')) : [];
-  var chapter = 0; // smoothed
-
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
-
-  // section/pillar centers cached in document space, re-measured only when
-  // document height changes — per-frame path is scrollY arithmetic, no gBCR
-  var secCenters = [], pilCenters = [], measuredSH = -1;
-  function measureLayout() {
-    var sy = window.scrollY || 0, i, r;
-    measuredSH = document.documentElement.scrollHeight;
-    secCenters = [];
-    for (i = 0; i < sections.length; i++) {
-      r = sections[i].getBoundingClientRect();
-      secCenters.push(sy + r.top + r.height / 2);
-    }
-    pilCenters = [];
-    for (i = 0; i < pillarEls.length && i < 3; i++) {
-      r = pillarEls[i].getBoundingClientRect();
-      pilCenters.push(sy + r.top + r.height / 2);
-    }
-  }
-  function freshLayout() {
-    if (document.documentElement.scrollHeight !== measuredSH) measureLayout();
-  }
-
-  function chapterTarget() {
-    if (!HOME || sections.length < 2) return 0;
-    freshLayout();
-    var vc = (window.scrollY || 0) + innerHeight / 2;
-    if (vc <= secCenters[0]) return 0;
-    for (var j = 0; j < secCenters.length - 1; j++) {
-      if (vc < secCenters[j + 1]) return j + (vc - secCenters[j]) / (secCenters[j + 1] - secCenters[j]);
-    }
-    return secCenters.length - 1;
-  }
-  function pillarWeights() {
-    var w = [0, 0, 0];
-    var vc = (window.scrollY || 0) + innerHeight / 2;
-    for (var i = 0; i < pilCenters.length; i++) {
-      var d = Math.abs(pilCenters[i] - vc) / (innerHeight * 0.6);
-      var x = Math.max(0, 1 - d);
-      w[i] = x * x;
-    }
-    return w;
-  }
-
-  /* ---------------- interaction / lifecycle ---------------- */
-  var tmx = 0, tmy = 0, cmx = 0, cmy = 0;
-  var lastActive = 0, simT = 0, introT = 0;
-  var INTRO = 2.6;
-  var seen = false;
-  try { seen = sessionStorage.getItem('linku_scene') === '1'; } catch (e) { }
-  if (seen) introT = INTRO;
-  addEventListener('pointermove', function (e) {
-    tmx = (e.clientX / innerWidth) * 2 - 1;
-    tmy = (e.clientY / innerHeight) * 2 - 1;
-    lastActive = performance.now();
-  }, { passive: true });
-  addEventListener('scroll', function () { lastActive = performance.now(); }, { passive: true });
-  addEventListener('touchstart', function () { lastActive = performance.now(); }, { passive: true });
-
-  /* ---------------- frame render ---------------- */
-  var glowUV = [0.62, 0.5];
-  function computeState(dt) {
-    simT += dt;
-    var pe = easeOutCubic(Math.min(1, introT / INTRO));
-
-    cmx += (tmx - cmx) * 0.04;
-    cmy += (tmy - cmy) * 0.04;
-
-    var st = {}, k;
-    if (HOME) {
-      var ct = chapterTarget();
-      chapter += (ct - chapter) * Math.min(1, dt * 4.5);
-      var i0 = Math.max(0, Math.min(2, Math.floor(chapter)));
-      var f = Math.max(0, Math.min(1, chapter - i0));
-      var A = KF[i0], B = KF[i0 + 1];
-      for (k in A) st[k] = lerp(A[k], B[k], f);
-      // pillar-by-pillar lighting while the exploded chapter is active
-      var wc2 = Math.max(0, 1 - Math.abs(chapter - 2));
-      if (wc2 > 0.01) {
-        var w = pillarWeights();
-        st.core += (1.0 * w[0] - 0.35 * w[1] + 0.45 * w[2]) * wc2;
-        st.sig += (0.85 * w[1] + 0.50 * w[2]) * wc2;
-        st.env = 1 + 0.35 * w[2] * wc2;
-        st.servoRate = 1 + 1.2 * w[1] * wc2;
-      }
-      // contact: lock the rings, pulse the core
-      var wc3 = Math.max(0, Math.min(1, (chapter - 2.4) / 0.6));
-      st.hold = chapter > 2.55;
-      if (wc3 > 0.01) {
-        var pulse = Math.pow(0.5 + 0.5 * Math.sin(simT * 2.0), 3) * wc3;
-        st.core += pulse * 0.9;
-        st.partSpeed = 1 + 2.2 * pulse;
-      }
-    } else {
-      // inner pages: pure deep space — drifting starfield + a soft central
-      // glow, no machine. The gimbal core is the homepage hero's alone; inner
-      // pages must not put a second heavy visual behind their content (proof
-      // canvas, body copy). cam values are inert here (no mesh is drawn).
-      st.cx = 0; st.cy = 0; st.cz = -4;
-      st.core = 0; st.sig = 0; st.env = 1;
-      st.glow = 0.5; st.exp = 0.72;
-      st.servoRate = 0; st.partSpeed = 0;
-      st.inner = true;
-    }
-    st.env = st.env || 1;
-    st.servoRate = st.servoRate || 1;
-    st.partSpeed = st.partSpeed || 1;
-
-    // intro: converge from an exploded, dark start
-    st.ex += (1 - pe) * 1.5;
-    st.core *= pe * pe;
-    st.exp *= 0.30 + 0.70 * pe;
-    st.pe = pe;
-
-    // portrait/narrow framing: bring the machine toward center, dolly back
-    // continuously as the viewport squares up (no step at any aspect), lift
-    // it into the display-type zone and dim it so small copy stays readable
-    var asp = W / Math.max(1, H);
-    var xf = Math.max(0.3, Math.min(1, (asp - 0.60) / 0.70));
-    st.cx *= xf;
-    st.cz *= 1 + 0.26 * Math.max(0, Math.min(1, (1.30 - asp) / 0.70));
-    var pf = Math.max(0, Math.min(1, (1.05 - asp) / 0.50));
-    st.cy += 0.42 * pf;
-    st.core *= 1 - 0.20 * pf;
-    st.exp *= 1 - 0.05 * pf;
-
-    st.aoMix = Math.min(0.75, st.ex * 0.75);
-    // stage glow follows the machine's screen position (homepage); inner pages
-    // keep a fixed, gently-high central glow behind the deep-space starfield
-    if (st.inner) {
-      glowUV[0] = 0.5; glowUV[1] = 0.42;
-    } else {
-      glowUV[0] = 0.5 + 0.5 * (FOVF / asp) * st.cx / (-st.cz);
-      glowUV[1] = 0.5 + 0.5 * FOVF * st.cy / (-st.cz);
-    }
-    return st;
-  }
-
-  function updateParticles(dt, st) {
-    var pe = st.pe, spd = st.partSpeed;
-    for (var i = 0; i < drawNP; i++) {
-      var p = part[i];
-      p.phi += 0.10 * Math.pow(2.0 / p.r, 1.5) * dt * spd;
-      p.r -= 0.020 * dt * spd;
-      if (p.age < 1) p.age = Math.min(1, p.age + dt * 0.8);
-      if (p.r < 1.30) { p.r = 2.25 + Math.random() * 0.45; p.age = 0; }
-      var rr = p.r, yy = p.y0 * (rr / 2.2) * (1 + st.ex * 0.55);
-      var cph = Math.cos(p.phi) * rr, sph = Math.sin(p.phi) * rr;
-      var ox = p.u[0] * cph + p.v[0] * sph + p.n[0] * yy;
-      var oy = p.u[1] * cph + p.v[1] * sph + p.n[1] * yy;
-      var oz = p.u[2] * cph + p.v[2] * sph + p.n[2] * yy;
-      // intro coalesce: from scattered volume to the accretion orbit
-      var t = Math.max(0, Math.min(1, (pe * 1.2 - p.st * 0.2)));
-      var te = easeOutCubic(t);
-      var x = p.sx + (ox - p.sx) * te;
-      var y = p.sy + (oy - p.sy) * te;
-      var z = p.sz + (oz - p.sz) * te;
-      var tw = 0.7 + 0.3 * Math.sin(simT * (0.9 + p.st) + p.tw);
-      var o = i * P_STRIDE;
-      pointData[o] = x; pointData[o + 1] = y; pointData[o + 2] = z;
-      pointData[o + 3] = p.size;
-      pointData[o + 4] = p.al * tw * (0.20 + 0.80 * pe) * p.age;
-      pointData[o + 5] = p.warm;
-    }
-    gl.bindBuffer(gl.ARRAY_BUFFER, pointBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, pointData.subarray(0, drawNP * P_STRIDE));
-  }
-
-  function drawScene(st, aOut, aIn) {
-    var S = P.scene;
-    gl.useProgram(S.p);
-    gl.uniform1f(S.u.uT, simT);
-    gl.uniform1f(S.u.uCoreBoost, st.core);
-    gl.uniform1f(S.u.uAOMix, st.aoMix);
-    gl.uniform1f(S.u.uEnvBoost, st.env);
-    gl.uniform3f(S.u.uCam, st.cx, st.cy, st.cz);
-    if (MODE !== 'pipe') {
-      gl.uniform2f(S.u.uRes, W, H);
-      gl.uniform1f(S.u.uExposure, st.exp);
-    }
-    var G = mul3(ry(0.42 + cmx * 0.4), rx(-0.52 + cmy * 0.26));
-    var M1 = mul3(G, ry(aOut));
-    var M2 = mul3(M1, rx(aIn));
-    var Mc = mul3(M2, ry(simT * 0.10));
-    var ex = st.ex;
-    var oOut = [0.06 * ex, 0.58 * ex, 0], oIn = [0, 0.02 * ex, 0], oCore = [-0.04 * ex, -0.52 * ex, 0];
-    bindMesh();
-    function dp(name, rot, off, sigOn, sigPhase) {
-      var o = objects[name];
-      gl.uniformMatrix3fv(S.u.uRot, false, rot);
-      gl.uniform3f(S.u.uLoc, off[0], off[1], off[2]);
-      gl.uniform1f(S.u.uSigOn, sigOn);
-      gl.uniform1f(S.u.uSigPhase, sigPhase);
-      gl.drawArrays(gl.TRIANGLES, o.start, o.count);
-    }
-    dp('out', M1, oOut, st.sig, (simT * 0.22) % 1);
-    dp('bossPX', M1, oOut, 0, 0); dp('bossNX', M1, oOut, 0, 0);
-    dp('pinPX', M1, oOut, 0, 0); dp('pinNX', M1, oOut, 0, 0);
-    dp('in', M2, oIn, st.sig * 0.7, 1 - (simT * 0.16) % 1);
-    dp('coreShell', Mc, oCore, 0, 0);
-    dp('coreGlow', Mc, oCore, 0, 0);
-    return G;
-  }
-
-  function drawPoints(st, G) {
-    var Q = P.points;
-    gl.useProgram(Q.p);
-    gl.uniform3f(Q.u.uCam, st.cx, st.cy, st.cz);
-    gl.depthMask(false);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    bindPoints();
-    if (!INNER) {                       // accretion belongs to the homepage machine
-      gl.uniformMatrix3fv(Q.u.uRot, false, G);
-      gl.drawArrays(gl.POINTS, 0, drawNP);
-    }
-    // stars: damped parallax + imperceptible drift
-    var Gs = mul3(ry(0.42 + cmx * 0.14 + simT * 0.004), rx(-0.52 + cmy * 0.09));
-    gl.uniformMatrix3fv(Q.u.uRot, false, Gs);
-    gl.drawArrays(gl.POINTS, NP, NS);
-    gl.disable(gl.BLEND);
-    gl.depthMask(true);
-  }
-
   var bloomOff = false;
-  function render(dt) {
-    var st = computeState(dt);
-    var aOut = INNER ? 0 : servoTick(svOut, dt * st.servoRate, st.hold);
-    var aIn = INNER ? 0 : servoTick(svIn, dt * st.servoRate, st.hold);
-    if (!INNER) updateParticles(dt, st); // no accretion on inner pages
-
-    if (MODE === 'pipe') {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, msaaOK ? fbo.ms : fbo.scene.f);
+  function draw(st) {
+    if (INNER) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, W, H);
-      gl.enable(gl.DEPTH_TEST);
-      gl.clearColor(0.030, 0.030, 0.033, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      var G = INNER ? null : drawScene(st, aOut, aIn); // no machine on inner pages
-      drawPoints(st, G);
-      gl.disable(gl.DEPTH_TEST);
-      if (msaaOK) {
-        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, fbo.ms);
-        gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fbo.scene.f);
-        gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-      }
-      bindQuad();
-      function pass(pr, dst, binds, set) {
-        gl.useProgram(pr.p);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, dst ? dst.f : null);
-        gl.viewport(0, 0, dst ? dst.w : W, dst ? dst.h : H);
-        for (var i = 0; i < binds.length; i++) {
-          gl.activeTexture(gl.TEXTURE0 + i);
-          gl.bindTexture(gl.TEXTURE_2D, binds[i][1]);
-          gl.uniform1i(pr.u[binds[i][0]], i);
-        }
-        if (set) set(pr);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-      }
-      var doBloom = !bloomOff && !INNER; // stars need no bloom; keeps inner pages light
-      if (doBloom) {
-        pass(P.bright, fbo.bright, [['uTex', fbo.scene.t]]);
-        pass(P.blur, fbo.b0a, [['uTex', fbo.bright.t]], function (pr) { gl.uniform2f(pr.u.uDir, 1 / fbo.bright.w, 0); });
-        pass(P.blur, fbo.b0b, [['uTex', fbo.b0a.t]], function (pr) { gl.uniform2f(pr.u.uDir, 0, 1 / fbo.b0a.h); });
-        pass(P.blur, fbo.b1a, [['uTex', fbo.b0b.t]], function (pr) { gl.uniform2f(pr.u.uDir, 1 / fbo.b1a.w, 0); });
-        pass(P.blur, fbo.b1b, [['uTex', fbo.b1a.t]], function (pr) { gl.uniform2f(pr.u.uDir, 0, 1 / fbo.b1a.h); });
-        pass(P.blur, fbo.b2a, [['uTex', fbo.b1b.t]], function (pr) { gl.uniform2f(pr.u.uDir, 1 / fbo.b2a.w, 0); });
-        pass(P.blur, fbo.b2b, [['uTex', fbo.b2a.t]], function (pr) { gl.uniform2f(pr.u.uDir, 0, 1 / fbo.b2a.h); });
-      }
-      pass(P.comp, null, [
-        ['uScene', fbo.scene.t],
-        ['uB0', doBloom ? fbo.b0b.t : blackTex],
-        ['uB1', doBloom ? fbo.b1b.t : blackTex],
-        ['uB2', doBloom ? fbo.b2b.t : blackTex],
-      ], function (pr) {
-        gl.uniform1f(pr.u.uT, simT);
-        gl.uniform2f(pr.u.uRes, W, H);
-        gl.uniform1f(pr.u.uExposure, st.exp);
-        gl.uniform1f(pr.u.uBloomAmt, doBloom ? 1 : 0);
-        gl.uniform2f(pr.u.uGlowUV, glowUV[0], glowUV[1]);
-        gl.uniform1f(pr.u.uGlowAmt, st.glow);
-      });
-    } else {
-      // direct mode: tone map in-shader, no post chain
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-      gl.viewport(0, 0, W, H);
-      gl.enable(gl.DEPTH_TEST);
-      gl.clearColor(0.0175, 0.0205, 0.0274, 1); // scene bg after the same tone curve
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      var G2 = INNER ? null : drawScene(st, aOut, aIn); // no machine on inner pages
-      drawPoints(st, G2);
-      gl.disable(gl.DEPTH_TEST);
+      gl.clearColor(0.0175, 0.0205, 0.0274, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.useProgram(P.points.p);
+      gl.uniformMatrix3fv(P.points.u.uRot, false, mul3(ry(0.42 + cmx * 0.14 + simT * 0.004), rx(-0.52 + cmy * 0.09)));
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.bindVertexArray(vaoPts);
+      gl.drawArrays(gl.POINTS, 0, NS);
+      gl.disable(gl.BLEND);
+      return;
     }
+    var g = grid, u;
+    gl.disable(gl.BLEND);
+    gl.bindVertexArray(vaoQuad);
+    gl.useProgram(P.light.p);
+    u = P.light.u;
+    tex(0, g.a.t, u.uSt);
+    gl.uniform2f(u.uLd, LKH[0], LKH[1]);
+    gl.uniform2f(u.uGs, g.nx, g.ny);
+    gl.uniform1f(u.uLs, LKS);
+    gl.uniform1f(u.uU, g.U);
+    gl.uniform1i(u.uSx, 1);                       // the camera always stands on the +x side
+    gl.uniform3f(u.uLk, -0.8287, 0.4662, -0.3108);
+    quadPass(P.light, g.lt.f, g.nx, g.ny);
+    // pins, back to front, composited "over"
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo.scene.f);
+    gl.viewport(0, 0, W, H);
+    gl.clearColor(0.014, 0.014, 0.017, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(P.pin.p);
+    u = P.pin.u;
+    tex(0, g.a.t, u.uSt);
+    tex(1, g.lt.t, u.uLt);
+    gl.uniform2i(u.uGrid, g.nx, g.ny);
+    gl.uniform2f(u.uOrg, g.ox, g.oz);
+    gl.uniform1i(u.uIc, Math.max(0, Math.min(g.nx - 1, Math.round(cam.C[0] - g.ox))));
+    gl.uniform3fv(u.uEye, cam.C);
+    gl.uniformMatrix4fv(u.uVP, false, camVP(cam));
+    gl.uniform1f(u.uPxK, 2 * TANY / H);
+    gl.uniform4f(u.uSpot, st.spx, st.spz, st.spot, st.bed);
+    gl.uniform3f(u.uFog, cam.D * 1.06, cam.D * 1.50, g.U);
+    gl.uniform3f(u.uPl, ptrW[0], ptrW[1], st.pl * 0.35);
+    gl.bindVertexArray(vaoPin);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, g.nx * g.ny);
+    gl.disable(gl.BLEND);
+    // post
+    gl.bindVertexArray(vaoQuad);
+    function pass(pr, dst, binds, set) {
+      gl.useProgram(pr.p);
+      for (var i = 0; i < binds.length; i++) tex(i, binds[i][1], pr.u[binds[i][0]]);
+      if (set) set(pr.u);
+      quadPass(pr, dst ? dst.f : null, dst ? dst.w : W, dst ? dst.h : H);
+    }
+    function blur(src, a, b) {
+      pass(P.blur, a, [['uTex', src.t]], function (c) { gl.uniform2f(c.uDir, 1 / a.w, 0); });
+      pass(P.blur, b, [['uTex', a.t]], function (c) { gl.uniform2f(c.uDir, 0, 1 / a.h); });
+    }
+    var post = !bloomOff;
+    if (post) {
+      pass(P.copy, fbo.half, [['uTex', fbo.scene.t]]);
+      blur(fbo.half, fbo.b0a, fbo.b0b);
+      blur(fbo.b0b, fbo.b1a, fbo.b1b);
+      blur(fbo.b1b, fbo.b2a, fbo.b2b);
+    }
+    pass(P.comp, null, [
+      ['uScene', fbo.scene.t],
+      ['uB0', post ? fbo.b0b.t : blackTex],
+      ['uB1', post ? fbo.b1b.t : blackTex],
+      ['uB2', post ? fbo.b2b.t : blackTex],
+    ], function (c) {
+      gl.uniform3fv(c.uEye, cam.C); gl.uniform3fv(c.uF, cam.f); gl.uniform3fv(c.uR, cam.r); gl.uniform3fv(c.uU, cam.u);
+      gl.uniform2f(c.uTan, TANY * W / H, TANY);
+      gl.uniform1f(c.uT, simT);
+      gl.uniform1f(c.uExposure, st.exp);
+      gl.uniform1f(c.uBloomAmt, post ? 0.14 : 0);
+      gl.uniform1f(c.uDof, post ? st.dof : 0);
+      gl.uniform1f(c.uFoc, st.foc);
+    });
+  }
+  // a zero-height viewport would divide by zero into accumulators for good
+  function sane() { return innerHeight > 0 && cssW > 0 && cssH > 0; }
+  function render(dt) {
+    if (INNER) { simT += dt; cmx += (tmx - cmx) * 0.04; cmy += (tmy - cmy) * 0.04; draw(null); return; }
+    if (!sane()) return;
+    var st = computeState(dt);
+    advance(st, dt);
+    draw(st);
   }
 
   /* ---------------- loop / governance ---------------- */
-  var rafId = 0, prevTs = 0, flip = false, running = false;
-  var fpsEMA = 60, lowSince = 0;
+  var rafId = 0, prevTs = 0, beatTs = 0, running = false, glReady = false, syncToggle = null, toggleEl = null;
+  var fpsEMA = 60, lowSince = 0, held = false, dead = false;
+  // Every failure ends here: the scene steps aside for the plain page and
+  // takes the rest of the ambient motion with it.
+  function die(e, where) {
+    console.warn('scene: ' + where + ' failed, leaving the page background plain:', e && e.message);
+    dead = true; running = false;
+    stopLoop();
+    canvas.style.visibility = 'hidden';
+    if (toggleEl) { toggleEl.remove(); toggleEl = null; }
+    root.classList.add('motion-paused');
+    emit(false);
+    if (!window.__scene) window.__scene = { mode: 'none' };
+  }
+  // Once, after the intro: time six frames on the GPU (timer extension); if
+  // the frame at up to 3200px would still cost under 3.5 ms, draw at that.
+  function sharpen(end) {
+    if (!TQ || tqN < 0) return;
+    var px = Math.max(cssW, cssH) * Math.min(devicePixelRatio || 1, 2);
+    if (end) {
+      if (tqOpen) { gl.endQuery(TQ.TIME_ELAPSED_EXT); tqOpen = false; }
+    } else if (tq) {
+      if (!gl.getQueryParameter(tq, gl.QUERY_RESULT_AVAILABLE)) return;
+      // the quickest of the six is the steady state (first frames carry warm-up)
+      if (!gl.getParameter(TQ.GPU_DISJOINT_EXT)) { tqNs = Math.min(tqNs, gl.getQueryParameter(tq, gl.QUERY_RESULT)); tqN++; }
+      gl.deleteQuery(tq); tq = null;
+      if (tqN > 5) {
+        var k = Math.min(3200, px) / EDGE;
+        tqN = -1;
+        if (tqNs / 1e6 * k * k < 3.5) { EDGE = 3200; applySize(); }
+      }
+    } else if (introT >= INTRO && !tier && px > EDGE * 1.04 && ++tqWarm > 60) {
+      tq = gl.createQuery(); gl.beginQuery(TQ.TIME_ELAPSED_EXT, tq); tqOpen = true;
+    }
+  }
   function loop(ts) {
     rafId = requestAnimationFrame(loop);
-    // throttle to 30fps once the intro is done and either: no interaction for
-    // 4s (reading), or the hero has scrolled >1.5×vh out of frame (per brief —
-    // the scene is fixed, so scroll depth stands in for "hero left viewport")
-    var throttle = introT >= INTRO && (
-      (ts - lastActive) > 4000 ||
-      (HOME && (window.scrollY || 0) > innerHeight * 1.5)
-    );
-    flip = !flip;
-    // skip BEFORE consuming the timestamp: next rendered frame sees ~33ms dt
-    // → throttle halves the frame rate, not the motion speed
-    if (throttle && flip) return;
-    var hadPrev = !!prevTs;
-    var rawDt = hadPrev ? Math.max(0, (ts - prevTs) / 1000) : 0.016;
-    var dt = Math.min(0.05, rawDt);
-    prevTs = ts;
-    // Visual simulation stays clamped for stability, but intro progress must
-    // follow real visible time. startLoop() clears prevTs after tab pauses, so
-    // time spent hidden never burns an intro the visitor did not see.
-    if (introT < INTRO) introT = Math.min(INTRO, introT + rawDt);
-    render(dt);
-    if (!seen && introT >= INTRO) {
-      // mark only once the intro has actually been rendered — a prerendered
-      // page (frozen rAF) must not burn the once-per-session intro unseen
-      seen = true;
-      try { sessionStorage.setItem('linku_scene', '1'); } catch (e) { }
+    // the beat: how often this device is given a frame at all, drawn or not
+    var beat = beatTs ? (ts - beatTs) / 1000 : 0;
+    beatTs = ts;
+    // Idle (intro done, untouched for 4s): draw at ~30fps. Skipped BEFORE the
+    // timestamp is consumed, so the frame rate drops and the motion does not
+    // slow; by time, not parity (30 Hz is not halved again, 120 not left at 60).
+    var throttle = introT >= INTRO && (ts - lastActive) > 4000;
+    if (!(throttle && prevTs && ts - prevTs < 28)) {
+      var rawDt = prevTs ? Math.max(0, (ts - prevTs) / 1000) : 0.016;
+      prevTs = ts;
+      // dt is clamped for stability; the intro follows real visible time
+      if (introT < INTRO) introT = Math.min(INTRO, introT + rawDt);
+      try { sharpen(0); render(Math.min(0.05, rawDt)); sharpen(1); } catch (e) { die(e, 'frame'); return; }
+      if (!seen && introT >= INTRO) {
+        // only once the intro has been drawn
+        seen = true;
+        try { sessionStorage.setItem('linku_scene', '1'); } catch (e) { }
+      }
     }
-    // Measure real frame cadence from the beginning. The old post-intro gate
-    // exceeded INTRO itself, disabling tier-down entirely.
-    if (!throttle && hadPrev) {
-      var fps = 1 / Math.max(0.001, rawDt);
+    // Governance reads the beat (so it watches through idle skips): under 40
+    // fps the resolution steps down, under 26 the bed freezes — 30 Hz (iOS Low
+    // Power Mode) is a frame rate, not a failure. Play after a freeze overrules.
+    if (beat) {
+      var fps = 1 / Math.max(0.001, beat);
       fpsEMA += (fps - fpsEMA) * 0.05;
-      if (fpsEMA < 40) {
+      if (fpsEMA < (tier < 2 ? 40 : 26) && !(tier > 1 && held)) {
         if (!lowSince) lowSince = ts;
         else if (ts - lowSince > 2500) { lowSince = 0; tierDown(); }
       } else lowSince = 0;
@@ -1091,18 +920,28 @@
   function tierDown() {
     tier++;
     fpsEMA = 60;
-    if (tier === 1) bloomOff = true;
-    else if (tier === 2) applySize();
-    else {
-      // static endpoint: running=false so visibilitychange can't resurrect it
-      running = false;
-      stopLoop();
-      render(0.016);
-    }
+    try {
+      if (tier < 3) {
+        // a fifth off the resolution; then more, and the blur pyramid goes too
+        bloomOff = tier > 1;
+        applySize();
+        // resizing cleared the canvas after this frame: redraw (no black frame)
+        if (INNER) draw(null); else if (S) draw(S);
+      } else {
+        // static endpoint: running=false so visibilitychange can't resurrect it
+        running = false;
+        stopLoop();
+        root.classList.add('motion-paused');
+        renderStill();
+        if (syncToggle) syncToggle();          // the button must say what is true: paused, press to play
+        emit(false);                           // …and whatever follows the button stops with it
+      }
+    } catch (e) { die(e, 'tier-down'); }       // e.g. the smaller targets could not be allocated
   }
   function startLoop() {
-    if (rafId || !running) return;
-    prevTs = 0;
+    if (rafId || !running || !glReady) return;
+    prevTs = beatTs = 0;
+    lowSince = 0; fpsEMA = 60;               // a pause or a hidden tab is not part of the measurement
     lastActive = performance.now();
     rafId = requestAnimationFrame(loop);
   }
@@ -1112,16 +951,32 @@
   });
 
   /* ---------------- reduced motion / still / boot ---------------- */
+  // one settled frame for the current scroll position
   function renderStill() {
-    // one settled, composed frame: assembled machine, pleasant glow phase
-    introT = INTRO; simT = 8;
-    svOut.a = svOut.target = 0.35; svOut.v = 0;
-    svIn.a = svIn.target = 0.75; svIn.v = 0;
-    render(0.016);
+    introT = INTRO;
+    if (INNER) { simT = 8; draw(null); return; }
+    if (!sane()) return;
+    chapter = chapterTarget();
+    simT = 0;                                // every still is the same moment: the solid does not change shape between two of them
+    clicks.length = 0; ptrT = -1e9;
+    for (var r = 0; r < 4; r++) rip[r * 4 + 2] = 99;   // a still is at rest: no wave caught mid-pass
+    var st;
+    for (var i = 0; i < 110; i++) { st = computeState(1 / 30); advance(st, 1 / 30); }
+    draw(st);
   }
+  var stillT = 0;
+  addEventListener('scroll', function () {
+    if (dead || running || INNER || !grid) return;
+    clearTimeout(stillT);
+    // paused: follow the chapter without animating
+    stillT = setTimeout(function () {
+      if (dead || running || gl.isContextLost()) return;
+      try { renderStill(); } catch (e) { die(e, 'still'); }
+    }, 140);
+  }, { passive: true });
+
   function injectToggle() {
-    // localized labels live in each page's HTML data attributes (same i18n
-    // mechanism as the proof section) — never in shared JS
+    // localized labels live in each page's HTML (data-l-*), never in shared JS
     var L = [
       canvas.getAttribute('data-l-play') || 'Play background animation',
       canvas.getAttribute('data-l-pause') || 'Pause background animation',
@@ -1135,84 +990,91 @@
       b.title = b.getAttribute('aria-label');
     }
     sync();
+    syncToggle = sync;
     b.addEventListener('click', function () {
+      if (dead) return;
       running = !running;
       if (running) {
-        document.documentElement.classList.remove('motion-paused');
+        if (tier > 2) { tier = 2; held = true; }   // an explicit Play outranks the automatic freeze
+        root.classList.remove('motion-paused');
         startLoop();
       } else {
-        document.documentElement.classList.add('motion-paused');
+        root.classList.add('motion-paused');
         stopLoop();
       }
       sync();
-      try { document.dispatchEvent(new CustomEvent('linku-motion-toggle', { detail: { running: running } })); } catch (e) { }
+      emit(running);
     });
     document.body.appendChild(b);
+    toggleEl = b;
+    if (refocus) { refocus = false; b.focus({ preventScroll: true }); }
   }
 
   var resizeT = 0, lastCW = 0, lastCH = 0, lastDPR = 0;
   addEventListener('resize', function () {
     clearTimeout(resizeT);
     resizeT = setTimeout(function () {
-      if (MODE === '2d') { static2D(); return; } // GL died earlier — repaint the 2D frame
       var cw = canvas.clientWidth, ch = canvas.clientHeight;
       var dpr = devicePixelRatio || 1; // dpr alone changes when dragging across monitors with different OS scaling
+      if (dead || !glReady) return;             // not built yet, or lost: boot / restore size everything themselves
       if (cw === lastCW && ch === lastCH && dpr === lastDPR) return; // e.g. mobile URL bar with lvh
       lastCW = cw; lastCH = ch; lastDPR = dpr;
       try {
         applySize();
-        if (!rafId) render(0.016); // keep stills fresh
-      } catch (e) {
-        console.warn('scene: resize re-init failed, falling back to static frame:', e && e.message);
-        MODE = '2d'; static2D();
-      }
+        measuredSH = -1;
+        if (!rafId) renderStill(); // keep stills fresh
+      } catch (e) { die(e, 'resize'); }
     }, 150);
   }, { passive: true });
 
-  canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); stopLoop(); }, false);
-  canvas.addEventListener('webglcontextrestored', function () {
-    // relinks can fail right after a GPU reset — never strand a black canvas
-    try {
-      progs = []; P = {}; fbo = null;
-      initGLObjects();
-      applySize();
-      if (running) { startLoop(); } else { renderStill(); }
-    } catch (e) {
-      console.warn('scene: context restore failed, falling back to static frame:', e && e.message);
-      MODE = '2d'; static2D();
-    }
-  }, false);
-
-  try {
-    initGLObjects();
-    lastCW = canvas.clientWidth; lastCH = canvas.clientHeight; lastDPR = devicePixelRatio || 1;
-    applySize();
-  } catch (e) {
-    console.warn('scene: GL init failed, falling back to static frame:', e && e.message);
-    MODE = '2d'; static2D(); return;
+  // carry on when the programs are built (boot and context restore share this)
+  function whenBuilt(then) {
+    (function poll() {
+      if (dead) return;
+      if (!progsDone()) { requestAnimationFrame(poll); return; }
+      if (gl.isContextLost()) return;          // the restore handler starts over
+      try { progsFinish(); applySize(true); glReady = true; then(); } catch (e) { die(e, 'GL init'); }
+    })();
   }
 
-  // dev/introspection handle (used by verification tooling)
-  window.__scene = {
-    mode: MODE, get tier() { return tier; }, get fps() { return fpsEMA; },
-    get chapter() { return chapter; }, get introT() { return introT; },
-  };
+  canvas.addEventListener('webglcontextlost', function (e) { e.preventDefault(); glReady = false; stopLoop(); }, false);
+  canvas.addEventListener('webglcontextrestored', function () {
+    if (dead) return;
+    try {
+      progs = []; P = {}; fbo = null; grid = null;
+      if (HOME && !floatTargets()) throw new Error('float targets lost');
+      initGLObjects();
+    } catch (e) { die(e, 'context restore'); return; }
+    whenBuilt(function () { if (running) startLoop(); else renderStill(); });
+  }, false);
 
-  running = true;
-  startLoop();
-  injectToggle();
+  try { initGLObjects(); } catch (e) { die(e, 'GL init'); return; }
+  lastCW = canvas.clientWidth; lastCH = canvas.clientHeight; lastDPR = devicePixelRatio || 1;
+
+  whenBuilt(function () {
+    // introspection (verification tooling)
+    window.__scene = {
+      mode: MODE, get tier() { return tier; }, get fps() { return fpsEMA; },
+      get chapter() { return chapter; }, get introT() { return introT; },
+      get pins() { return grid ? grid.nx * grid.ny : 0; }, get size() { return [W, H]; },
+      get gpuMs() { return tqN < 0 ? tqNs / 1e6 : null; },
+      tierDown: function () { tierDown(); return tier; },
+    };
+    if (reduce) {
+      root.classList.add('motion-paused');
+      renderStill();
+      if (!STILL) injectToggle();
+    } else {
+      running = true;
+      startLoop();
+      injectToggle();
+    }
+  });
   } // end boot()
 
-  // The homepage intentionally has no scene until a new art direction is
-  // approved. Keep its fixed canvas empty rather than substituting a
-  // simplified gimbal illustration. Inner-page reduced-motion still uses a
-  // non-animated poster and may opt into the full renderer.
-  if (HOME) {
-    document.documentElement.classList.add('motion-paused');
-    window.__scene = { mode: 'blank' };
-  } else if (reduce) {
+  if (INNER && reduce) {
     staticPoster();
-    document.documentElement.classList.add('motion-paused');
+    root.classList.add('motion-paused');
     window.__scene = { mode: 'poster' };
     if (!STILL) prebootToggle();
   } else if (typeof requestAnimationFrame === 'function') requestAnimationFrame(boot);

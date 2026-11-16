@@ -33,12 +33,18 @@
  *     - 所有頁面的 <script src> / <link href> 外部 origin 僅允許
  *       fonts.googleapis.com、fonts.gstatic.com；其他一律 FAIL（守住零依賴）
  *  6. 漸進增強與語義：每頁恰有一個 main、skip link、不跳級的標題；
- *     reveal 與自訂游標只在 JS／游標確實啟動後才隱藏原生內容／游標
+ *     reveal 與自訂游標只在 JS／游標確實啟動後才隱藏原生內容／游標；
+ *     逐字切開的 hero 標題必須帶與可見文字一致的 aria-label（2026-11-13）；
+ *     裝飾性跑馬燈必須 aria-hidden 且逐字等於該頁頁尾句（不得成為新文案）
  *  7. 對外可信度與 Organization JSON-LD 的跨語一致性
  *  8. Metadata／互動安全／i18n 細節與明示語言 URL 回歸
  *  9. Vercel 安全標頭與嚴格 CSP 相容性
- * 10. Render runtime 治理與動畫控制語意
+ * 10. Render runtime 治理與動畫控制語意（2026-11-13 改版：首頁＝翻轉鏡片牆；
+ *     reduced-motion 只給定格、不起迴圈；場景零網路／字型相依；不攔截原生捲動）
  * 11. 跨頁 View Transition 的 parser gate（vt-gate.js 緊接 styles.css、同步載入）
+ * 12. 404.html（2026-11-16）：noindex、不宣告 canonical／hreflang、不進 sitemap、
+ *     lang 標記的中日文段落 CJK 子集完整；§4–6、§9、§11 也涵蓋這一頁
+ *     （§1–3 只掃 index.html）
  *
  * 檢查範圍與已知限制（改動站台結構前先讀）：
  *  - 「CJK 字元」定義：漢字（U+4E00–9FFF、擴展A U+3400–4DBF、相容區 U+F900–FAFF）、
@@ -381,6 +387,16 @@ const pages = pageFiles.map((file) => {
 });
 const pageByUrl = new Map(pages.map((p) => [p.url, p]));
 
+// 404.html：Vercel 對任何不存在的路徑回這一頁（三語並列、不收錄）。它不是
+// index.html，不走 §1–3 的 canonical／hreflang／sitemap；本地資源、外部 origin、
+// 語義、CSP 與 View Transition gate 則和九頁同一套標準（§4–6、§9、§11），
+// noindex 與 CJK 子集在 §12。
+const notFoundFile = path.join(ROOT, '404.html');
+const notFound = fs.existsSync(notFoundFile)
+  ? (() => { const html = readText(notFoundFile); return { file: notFoundFile, rel: '404.html', html, ...parseHead(html) }; })()
+  : null;
+const servedPages = notFound ? pages.concat(notFound) : pages;
+
 // ---------- 1. 頁面掃描：lang / canonical / hreflang ----------
 console.log('=== 1. 頁面掃描：lang / canonical / hreflang ===');
 
@@ -552,8 +568,10 @@ console.log('=== 4. 資源預算與本地引用完整性 ===');
 const ASSET_BUDGETS = [
   { rel: 'assets/render.js', maxBytes: 18 * 1024, optional: false },
   { rel: 'assets/proof.js',  maxBytes: 7 * 1024, optional: false },
-  { rel: 'assets/main.js',   maxBytes: 4 * 1024, optional: false },
-  { rel: 'assets/styles.css', maxBytes: 10 * 1024, optional: false },
+  // 2026-11-13 kinetic-wall：main.js 承載排版動效與捲動編排、styles.css 承載其樣式，
+  // 預算隨簡報 docs/tasks/2026-11-13-kinetic-wall.md 一併調整（仍留約 20% 空間）
+  { rel: 'assets/main.js',   maxBytes: 5 * 1024, optional: false },
+  { rel: 'assets/styles.css', maxBytes: 12 * 1024, optional: false },
   { rel: 'assets/vt-gate.js', maxBytes: 1024, optional: false },
 ];
 
@@ -587,7 +605,7 @@ for (const b of ASSET_BUDGETS) {
 // 頁面引用的本地 /assets/ 資源必須存在（防 script/css 改名或誤刪後靜默 404）
 {
   const missingRefs = [];
-  for (const p of pages) {
+  for (const p of servedPages) {
     const refs = [
       ...scriptSrcsOf(p),
       ...p.links.map((a) => decodeEntities(a.href || '')),
@@ -602,7 +620,7 @@ for (const b of ASSET_BUDGETS) {
     }
   }
   if (missingRefs.length === 0) {
-    pass('九頁引用的本地資源全部存在');
+    pass(servedPages.length + ' 頁（九頁＋404）引用的本地資源全部存在');
   } else {
     for (const m of missingRefs) fail(m);
   }
@@ -621,7 +639,7 @@ const FETCHING_RELS = new Set([
 ]);
 {
   const offenders = [];
-  for (const p of pages) {
+  for (const p of servedPages) {
     const urls = [
       ...scriptSrcsOf(p),
       ...p.links
@@ -647,7 +665,7 @@ console.log('');
 console.log('=== 6. 漸進增強與語義結構 ===');
 {
   const issues = [];
-  for (const p of pages) {
+  for (const p of servedPages) {
     const mainCount = (p.html.match(/<main\b/gi) || []).length;
     if (mainCount !== 1) issues.push(p.rel + ' — <main> 數量為 ' + mainCount + '（預期 1）');
     if (!/<a\b[^>]*class=["'][^"']*\bskip-link\b[^"']*["'][^>]*href=["']#top["']/i.test(p.html)) {
@@ -666,7 +684,63 @@ console.log('=== 6. 漸進增強與語義結構 ===');
   if (!/document\.documentElement\.classList\.add\(['"]js['"]\)/.test(mainJs.slice(0, 400))) {
     issues.push('main.js — 啟動區未設定 html.js enhancement gate');
   }
-  if (issues.length === 0) pass('九頁 main／skip link／標題層級與 no-JS enhancement gates 完整');
+  // 逐字切開的 hero 標題：螢幕閱讀器讀 aria-label，字元 span 一律 aria-hidden；
+  // label 必須與可見文字一致（防改了字卻忘了 label）。跑馬燈為頁尾句的裝飾性
+  // 重複：必須 aria-hidden，且文字逐字等於該頁頁尾最後一句。
+  const squash = (t) => t.replace(/\s+/g, '');
+  for (const p of servedPages) {
+    const tree = parseHTMLTree(p.html);
+    walk(tree, (node) => {
+      if (hasClass(node, 'hero-title')) {
+        const lines = node.children.filter((c) => c.tag === 'span');
+        let split = false;
+        walk(node, (d) => { if (hasClass(d, 'c')) split = true; });
+        const label = node.attrs['aria-label'];
+        const masked = lines.some((c) => c.attrs['aria-hidden'] === 'true');
+        // 切字、aria-label、行 span 的 aria-hidden 三者同進同出：只剩其中一兩樣
+        //（例如文案貼回純文字卻沒拿掉 label）螢幕閱讀器就會唸到舊句子。
+        if (!split && !label && !masked) return;
+        if (!split) {
+          issues.push(p.rel + ' — .hero-title 帶 aria-label／aria-hidden 卻沒有逐字 .c：三者必須同時存在或同時移除');
+          return;
+        }
+        const norm = (t) => t.replace(/\s+/g, ' ').trim();
+        const parts = lines.map((c) => norm(textOf(c)));
+        const said = label ? norm(decodeEntities(label)) : '';
+        // label＝各行文字相接：拉丁語系以空白相接、CJK 直接相接（不接受其他空白差異）
+        if (!said || (said !== parts.join(' ') && said !== parts.join(''))) {
+          issues.push(p.rel + ' — 逐字切開的 .hero-title 缺少與可見文字一致的 aria-label');
+        }
+        for (const child of lines) {
+          if (child.attrs['aria-hidden'] !== 'true') {
+            issues.push(p.rel + ' — .hero-title 的行 span 必須 aria-hidden="true"（由 aria-label 承載讀音）');
+          }
+        }
+      }
+      if (hasClass(node, 'marquee')) {
+        if (node.attrs['aria-hidden'] !== 'true') issues.push(p.rel + ' — .marquee 必須 aria-hidden="true"');
+        let footerLine = null;
+        walk(tree, (f) => {
+          if (f.tag !== 'footer') return;
+          const spans = f.children.filter((c) => c.tag === 'span');
+          if (spans.length) footerLine = textOf(spans[spans.length - 1]).trim();
+        });
+        const items = [];
+        walk(node, (item) => { if (hasClass(item, 'marquee-item')) items.push(item); });
+        if (!footerLine) {
+          issues.push(p.rel + ' — 找不到 .marquee 要對照的頁尾句（<footer> 最後一個 span）');
+        } else if (items.length < 2 || items.length % 2) {
+          // main.js 以軌道一半寬度循環：兩半必須相同
+          issues.push(p.rel + ' — .marquee 需要偶數個（至少 2 個）.marquee-item');
+        } else if (items.some((item) => textOf(item).trim() !== footerLine)) {
+          issues.push(p.rel + ' — .marquee-item 文字必須逐字等於頁尾句「' + footerLine + '」');
+        } else if (squash(textOf(node)) !== squash(footerLine).repeat(items.length)) {
+          issues.push(p.rel + ' — .marquee 內不得有 .marquee-item 以外的文字（新文案不進跑馬燈）');
+        }
+      }
+    });
+  }
+  if (issues.length === 0) pass('九頁＋404 main／skip link／標題層級、no-JS enhancement gates、hero aria-label 與跑馬燈文字一致');
   else for (const issue of issues) fail(issue);
 }
 
@@ -888,7 +962,7 @@ console.log('=== 9. Vercel 安全標頭與嚴格 CSP 相容性 ===');
     ['permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(), gyroscope=()'],
   ]);
 
-  for (const p of pages) {
+  for (const p of servedPages) {
     const conflicts = inlineNonJsonScripts(p.html);
     if (conflicts.length) {
       issues.push(p.rel + ' — CSP 無 inline allowance，但頁面含 inline script：' +
@@ -946,8 +1020,45 @@ console.log('=== 10. Render runtime 治理與動畫控制語意 ===');
   if (!/MODE\s*=\s*INNER\s*\?\s*['"]direct['"]\s*:\s*['"]pipe['"]/.test(render)) {
     issues.push('assets/render.js — 內頁 WebGL2 未固定走 direct starfield path');
   }
-  if (!/if\s*\(HOME\)\s*\{[\s\S]*?mode:\s*['"]blank['"][\s\S]*?\}\s*else\s+if\s*\(reduce\)\s*\{[\s\S]*?staticPoster\(\);[\s\S]*?if\s*\(!STILL\)\s*prebootToggle\(\);/.test(render)) {
-    issues.push('assets/render.js — 首頁必須保持無品牌插圖的空白背景；僅內頁 reduced-motion 可使用 poster');
+  // 首頁（機械針床）：reduced-motion／#reduce／#still 只渲染一張定格，不得啟動迴圈。
+  // 兩個分支各自取出來驗（分支內不得有巢狀大括號）：定格分支裡出現 startLoop／
+  // running = true 就是違規，不能只驗 token 的先後順序。
+  const boot = /if\s*\(reduce\)\s*\{([^{}]*)\}\s*else\s*\{([^{}]*)\}/.exec(render);
+  if (!boot
+    || !/classList\.add\(['"]motion-paused['"]\);[\s\S]*renderStill\(\);[\s\S]*if\s*\(!STILL\)\s*injectToggle\(\);/.test(boot[1])
+    || /startLoop\s*\(|running\s*=\s*true/.test(boot[1])
+    || !/running\s*=\s*true;[\s\S]*startLoop\(\);/.test(boot[2])) {
+    issues.push('assets/render.js — 首頁 reduced-motion 必須只渲染定格＋播放鈕，不得直接啟動動畫迴圈');
+  }
+  // 內頁 reduced-motion：零 GL poster，可手動播放
+  if (!/if\s*\(INNER\s*&&\s*reduce\)\s*\{[\s\S]*?staticPoster\(\);[\s\S]*?if\s*\(!STILL\)\s*prebootToggle\(\);/.test(render)) {
+    issues.push('assets/render.js — 內頁 reduced-motion 必須維持零 GL poster＋播放鈕');
+  }
+  if (!/HASH\s*===\s*['"]#still['"]/.test(render) || !/HASH\s*===\s*['"]#reduce['"]/.test(render)) {
+    issues.push('assets/render.js — dev 旗標必須精確匹配（#still／#reduce），不可用子字串比對');
+  }
+  // 場景不得有網路／字型相依（CSP connect-src 'none'；字形為內建點陣）
+  for (const [label, pattern] of [
+    ['fetch()', /\bfetch\s*\(/], ['XMLHttpRequest', /XMLHttpRequest/], ['new Image', /new\s+Image\b/],
+    ['document.fonts', /document\.fonts/], ['importScripts／Worker', /\bWorker\s*\(|importScripts/],
+  ]) {
+    if (pattern.test(render)) issues.push('assets/render.js — 場景不得依賴 ' + label);
+  }
+  if (!/document\.hidden\)\s*stopLoop\(\)/.test(render)) {
+    issues.push('assets/render.js — 分頁隱藏時必須停止迴圈');
+  }
+  // Q3 裁決（2026-07-07）：不採慣性／劫持捲動 —— 編排只能讀取原生捲動
+  // 先去掉註解再比對：一句「// never call scrollTo()」不該讓檢查誤判
+  const code = (src) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\s\/\/ .*$/gm, '');
+  const mainSrc = code(readText(path.join(ROOT, 'assets', 'main.js')));
+  const renderSrc = code(render);
+  for (const [label, pattern] of [
+    ["'wheel'／'touchmove' 監聽", /addEventListener\(\s*['"](?:wheel|mousewheel|touchmove)['"]|\.on(?:wheel|touchmove)\s*=/],
+    ['非 passive 監聽', /passive\s*:\s*false/],
+    ['scrollTo／scrollBy／scrollIntoView', /\bscroll(?:To|By|IntoView)\s*\(/],
+    ['scrollTop／scrollLeft 寫入', /\.scroll(?:Top|Left)\s*[-+*/]?=[^=]/],
+  ]) {
+    if (pattern.test(mainSrc) || pattern.test(renderSrc)) issues.push('main.js／render.js — 不得攔截或改寫原生捲動：' + label);
   }
   if (!/introT\s*=\s*Math\.min\(INTRO,\s*introT\s*\+\s*rawDt\)/.test(render)) {
     issues.push('assets/render.js — intro 未使用 unclamped visible elapsed time');
@@ -955,14 +1066,17 @@ console.log('=== 10. Render runtime 治理與動畫控制語意 ===');
   if (/introT\s*\+=\s*dt/.test(render) || /introT\s*>\s*3/.test(render)) {
     issues.push('assets/render.js — intro 仍依賴 clamped dt 或不可達的治理門檻');
   }
-  if (!/var\s+fps\s*=\s*1\s*\/\s*Math\.max\(0\.001,\s*rawDt\)/.test(render)) {
-    issues.push('assets/render.js — FPS 治理未量測真實 frame cadence');
+  // 治理量的是 rAF 回呼的節拍（不論該幀有沒有畫）：閒置節流跳過的幀不能把量測關掉，
+  // 否則跑不動的裝置在訪客不碰頁面時永遠退不到定格（Codex 2026-11-14 F2）
+  if (!/var\s+beat\s*=\s*beatTs\s*\?\s*\(ts\s*-\s*beatTs\)\s*\/\s*1000\s*:\s*0/.test(render)
+    || !/var\s+fps\s*=\s*1\s*\/\s*Math\.max\(0\.001,\s*beat\)/.test(render)) {
+    issues.push('assets/render.js — FPS 治理未量測真實 frame cadence（rAF 回呼節拍）');
   }
   if (/aria-pressed/.test(render) || /aria-pressed/.test(proof)) {
     issues.push('render.js／proof.js — 動態 Play/Pause action label 不得混用 aria-pressed');
   }
 
-  if (issues.length === 0) pass('首頁空白背景、內頁直繪、runtime 治理與 Play/Pause 語意一致');
+  if (issues.length === 0) pass('首頁場景定格降級、內頁直繪、零網路相依、原生捲動、runtime 治理與 Play/Pause 語意一致');
   else for (const issue of issues) fail(issue);
 }
 
@@ -977,7 +1091,7 @@ console.log('=== 11. 跨頁 View Transition parser gate ===');
   const issues = [];
   const css = readText(stylesPath);
   const optsIn = /@view-transition\s*\{[^}]*navigation\s*:\s*auto/.test(css);
-  for (const p of pages) {
+  for (const p of servedPages) {
     const head = p.html.split(/<body\b/i)[0];
     const tags = [...head.matchAll(/<(link|script)\b[^>]*>/gi)].map((m) => ({
       tag: m[1].toLowerCase(), attrs: attrsOfTag(m[0]), raw: m[0],
@@ -992,7 +1106,47 @@ console.log('=== 11. 跨頁 View Transition parser gate ===');
       issues.push(p.rel + ' — vt-gate.js 必須是同步 classic script（不可 async／defer／type）');
     }
   }
-  if (issues.length === 0) pass('九頁的 View Transition parser gate 位置與載入方式正確');
+  if (issues.length === 0) pass('九頁＋404 的 View Transition parser gate 位置與載入方式正確');
+  else for (const issue of issues) fail(issue);
+}
+
+// ---------- 12. 404 頁 ----------
+// 一頁服務所有語言：不收錄、不宣告正本；lang 標記的中日文段落，每個 CJK 字元
+// 都要在對應 Noto 子集的 &text= 內（頁面本身是 lang="en"，§3 管不到它）。
+console.log('');
+console.log('=== 12. 404 頁（不收錄、三語並列） ===');
+{
+  const issues = [];
+  if (!notFound) {
+    issues.push('缺少 404.html（Vercel 會回預設的白底錯誤頁）');
+  } else {
+    const meta = [...notFound.html.matchAll(/<meta\b[^>]*>/gi)].map((m) => attrsOfTag(m[0]));
+    if (!meta.some((a) => (a.name || '').toLowerCase() === 'robots' && /\bnoindex\b/i.test(a.content || ''))) {
+      issues.push('404.html — 必須有 <meta name="robots" content="noindex">');
+    }
+    if (notFound.canonical || notFound.alternates.size) {
+      issues.push('404.html — 不可宣告 canonical／hreflang（錯誤頁不是任何網址的正本）');
+    }
+    if (/404/.test(readText(path.join(ROOT, 'sitemap.xml')))) issues.push('sitemap.xml — 不可列入 404 頁');
+    const family = { 'zh-Hant': 'Noto+Sans+TC', ja: 'Noto+Sans+JP' };
+    const seen = new Set();
+    walk(parseHTMLTree(notFound.html), (node) => {
+      const lang = node.attrs && node.attrs.lang;
+      if (!family[lang]) return;
+      seen.add(lang);
+      const subset = fontSubsetOf(notFound.links, family[lang]);
+      if (!subset.linkFound || subset.text === null) {
+        issues.push('404.html — lang="' + lang + '" 的段落缺少 ' + family[lang] + ' 的 &text= 子集 <link>');
+        return;
+      }
+      const missing = [...new Set([...textOf(node)].filter((ch) => isCJK(ch) && !subset.text.includes(ch)))];
+      if (missing.length) issues.push('404.html — ' + family[lang] + ' 的 &text= 缺字：' + missing.join(''));
+    });
+    for (const lang of Object.keys(family)) {
+      if (!seen.has(lang)) issues.push('404.html — 缺少 lang="' + lang + '" 的段落（一頁服務三種語言）');
+    }
+  }
+  if (issues.length === 0) pass('404.html 不收錄、無正本宣告、未進 sitemap，三語段落的 CJK 子集完整');
   else for (const issue of issues) fail(issue);
 }
 

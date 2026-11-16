@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
 
   <!-- Favicon -->
   <link rel="icon" href="/assets/icon-192.png?v=da5a1367" sizes="192x192" type="image/png" />
@@ -32,7 +33,7 @@
   <meta property="og:locale" content="en_US" />
   <meta property="og:locale:alternate" content="zh_TW" />
   <meta property="og:locale:alternate" content="ja_JP" />
-  <meta property="og:image" content="https://linku.tech/assets/og-image.png" />
+  <meta property="og:image" content="https://linku.tech/assets/og-image.png?v=a35d9f51" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="LINKU — Intelligence, made physical." />
@@ -41,7 +42,7 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="LINKU — Intelligence, made physical." />
   <meta name="twitter:description" content="At the boundary of artificial intelligence and the physical world." />
-  <meta name="twitter:image" content="https://linku.tech/assets/og-image.png" />
+  <meta name="twitter:image" content="https://linku.tech/assets/og-image.png?v=a35d9f51" />
   <meta name="twitter:image:alt" content="LINKU — Intelligence, made physical." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -64,7 +65,7 @@
         "alternateName": ["Linku Tech", "LINKU Tech"],
         "url": "https://linku.tech/",
         "logo": "https://linku.tech/assets/favicon.svg",
-        "image": "https://linku.tech/assets/og-image.png",
+        "image": "https://linku.tech/assets/og-image.png?v=a35d9f51",
         "email": "info@linku.tech",
         "description": "LINKU is an early-stage technology venture building edge AI, control systems, and small, customizable intelligent machines. Its software–hardware co-design approach coordinates models, control, sensing, and hardware constraints around a defined task to pursue more useful task performance within comparable hardware limits.",
         "disambiguatingDescription": "An early-stage technology venture focused on edge AI, control, and intelligent machines built through software–hardware co-design.",
@@ -95,7 +96,7 @@
   </script>
 </head>
 
-<body>
+<body class="home">
   <a class="skip-link" href="#top">Skip to content</a>
   <canvas id="particles" aria-hidden="true" data-l-play="Play background animation" data-l-pause="Pause background animation"></canvas>
   <div class="cursor-ring" aria-hidden="true"></div>
@@ -123,10 +124,10 @@
 
     <!-- HERO -->
     <header class="hero section-pad" data-screen-label="Hero">
-      <h1 class="hero-title">
-        <span class="l1">Intelligence,</span><br />
-        <span class="l2">made</span><br />
-        <span class="l3">physical.</span>
+      <h1 class="hero-title" aria-label="Intelligence, made physical.">
+        <span class="l1" aria-hidden="true"><span class="c">I</span><span class="c">n</span><span class="c">t</span><span class="c">e</span><span class="c">l</span><span class="c">l</span><span class="c">i</span><span class="c">g</span><span class="c">e</span><span class="c">n</span><span class="c">c</span><span class="c">e</span><span class="c">,</span></span><br />
+        <span class="l2" aria-hidden="true"><span class="c">m</span><span class="c">a</span><span class="c">d</span><span class="c">e</span></span><br />
+        <span class="l3" aria-hidden="true"><span class="c">p</span><span class="c">h</span><span class="c">y</span><span class="c">s</span><span class="c">i</span><span class="c">c</span><span class="c">a</span><span class="c">l</span><span class="c">.</span></span>
       </h1>
       <p class="hero-sub">LINKU builds small, intelligent machines that perceive, decide, and act in the real world.</p>
       <div class="scroll-cue">
@@ -149,34 +150,36 @@
 
     <!-- PILLARS / WHAT WE DO -->
     <section class="pillars section-pad" id="pillars" data-screen-label="What We Do">
-      <div class="label reveal">What We Do</div>
-      <div class="pillar-list">
-        <div class="pillar reveal">
-          <div class="pillar-num">01</div>
-          <div>
-            <h2 class="pillar-title">Edge Intelligence</h2>
-            <p class="pillar-tag">Mind in the machine.</p>
-            <p class="pillar-desc">Inference and decisions run on the device itself, without a required cloud round trip.</p>
+      <div class="pin-stage">
+        <div class="label reveal">What We Do</div>
+        <div class="pillar-list">
+          <div class="pillar reveal">
+            <div class="pillar-num">01</div>
+            <div>
+              <h2 class="pillar-title">Edge Intelligence</h2>
+              <p class="pillar-tag">Mind in the machine.</p>
+              <p class="pillar-desc">Inference and decisions run on the device itself, without a required cloud round trip.</p>
+            </div>
+          </div>
+          <div class="pillar reveal">
+            <div class="pillar-num">02</div>
+            <div>
+              <h2 class="pillar-title">Control &amp; Systems</h2>
+              <p class="pillar-tag">Decision into motion.</p>
+              <p class="pillar-desc">Sensing, estimation, and closed-loop control carry each decision through to actuation.</p>
+            </div>
+          </div>
+          <div class="pillar reveal">
+            <div class="pillar-num">03</div>
+            <div>
+              <h2 class="pillar-title">Intelligent Machines</h2>
+              <p class="pillar-tag">Matter that thinks.</p>
+              <p class="pillar-desc">Small, customizable machines, co-designed in software and hardware around a defined task.</p>
+            </div>
           </div>
         </div>
-        <div class="pillar reveal">
-          <div class="pillar-num">02</div>
-          <div>
-            <h2 class="pillar-title">Control &amp; Systems</h2>
-            <p class="pillar-tag">Decision into motion.</p>
-            <p class="pillar-desc">Sensing, estimation, and closed-loop control carry each decision through to actuation.</p>
-          </div>
-        </div>
-        <div class="pillar reveal">
-          <div class="pillar-num">03</div>
-          <div>
-            <h2 class="pillar-title">Intelligent Machines</h2>
-            <p class="pillar-tag">Matter that thinks.</p>
-            <p class="pillar-desc">Small, customizable machines, co-designed in software and hardware around a defined task.</p>
-          </div>
-        </div>
+        <a class="more-link reveal" href="/technology/" data-cursor="hover">Explore our technology<span class="arrow">&#8594;</span></a>
       </div>
-      <a class="more-link reveal" href="/technology/" data-cursor="hover">Explore our technology<span class="arrow">&#8594;</span></a>
     </section>
 
     <!-- WORK -->
@@ -203,6 +206,16 @@
         </article>
       </div>
     </section>
+
+    <!-- MARQUEE: decorative echo of the footer line (aria-hidden; no new copy) -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <span class="marquee-item">Artificial Intelligence &times; Physical World</span>
+        <span class="marquee-item">Artificial Intelligence &times; Physical World</span>
+        <span class="marquee-item">Artificial Intelligence &times; Physical World</span>
+        <span class="marquee-item">Artificial Intelligence &times; Physical World</span>
+      </div>
+    </div>
 
     <!-- CONTACT -->
     <section class="contact section-pad" id="contact" data-screen-label="Contact">

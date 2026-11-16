@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a0a0a" />
 
   <!-- Favicon -->
   <link rel="icon" href="/assets/icon-192.png?v=da5a1367" sizes="192x192" type="image/png" />
@@ -31,7 +32,7 @@
   <meta property="og:locale" content="zh_TW" />
   <meta property="og:locale:alternate" content="en_US" />
   <meta property="og:locale:alternate" content="ja_JP" />
-  <meta property="og:image" content="https://linku.tech/assets/og-image.png" />
+  <meta property="og:image" content="https://linku.tech/assets/og-image.png?v=a35d9f51" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="LINKU — 讓智慧化為實體" />
@@ -40,7 +41,7 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="LINKU — 讓智慧化為實體" />
   <meta name="twitter:description" content="在人工智慧與物理世界交會之處。" />
-  <meta name="twitter:image" content="https://linku.tech/assets/og-image.png" />
+  <meta name="twitter:image" content="https://linku.tech/assets/og-image.png?v=a35d9f51" />
   <meta name="twitter:image:alt" content="LINKU — 讓智慧化為實體" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -69,7 +70,7 @@
         "alternateName": ["Linku Tech", "LINKU Tech"],
         "url": "https://linku.tech/",
         "logo": "https://linku.tech/assets/favicon.svg",
-        "image": "https://linku.tech/assets/og-image.png",
+        "image": "https://linku.tech/assets/og-image.png?v=a35d9f51",
         "email": "info@linku.tech",
         "description": "LINKU 是一個早期階段的技術專案，打造邊緣 AI、控制系統與小型可客製智慧機器。軟硬協同設計圍繞明確任務，協調模型、控制、感測與硬體限制，力求在相近硬體條件內取得更有用的任務表現。",
         "disambiguatingDescription": "專注於邊緣 AI、控制與智慧機器、以軟硬協同設計打造產品的早期階段技術專案。",
@@ -100,7 +101,7 @@
   </script>
 </head>
 
-<body>
+<body class="home">
   <a class="skip-link" href="#top">跳至主要內容</a>
   <canvas id="particles" aria-hidden="true" data-l-play="播放背景動畫" data-l-pause="暫停背景動畫"></canvas>
   <div class="cursor-ring" aria-hidden="true"></div>
@@ -128,9 +129,9 @@
 
     <!-- HERO -->
     <header class="hero section-pad" data-screen-label="Hero">
-      <h1 class="hero-title">
-        <span class="l1">讓智慧</span><br />
-        <span class="l2">化為實體</span>
+      <h1 class="hero-title" aria-label="讓智慧化為實體">
+        <span class="l1" aria-hidden="true"><span class="c">讓</span><span class="c">智</span><span class="c">慧</span></span><br />
+        <span class="l2" aria-hidden="true"><span class="c">化</span><span class="c">為</span><span class="c">實</span><span class="c">體</span></span>
       </h1>
       <p class="hero-sub">LINKU 打造能在真實世界中感知、決策、行動的小型智慧機器。</p>
       <div class="scroll-cue">
@@ -150,34 +151,36 @@
 
     <!-- PILLARS / WHAT WE DO -->
     <section class="pillars section-pad" id="pillars" data-screen-label="What We Do">
-      <div class="label reveal">我們做什麼</div>
-      <div class="pillar-list">
-        <div class="pillar reveal">
-          <div class="pillar-num">01</div>
-          <div>
-            <h2 class="pillar-title">邊緣智慧</h2>
-            <p class="pillar-tag">機器中的心智。</p>
-            <p class="pillar-desc">推論與決策在裝置端進行，不必依賴雲端往返。</p>
+      <div class="pin-stage">
+        <div class="label reveal">我們做什麼</div>
+        <div class="pillar-list">
+          <div class="pillar reveal">
+            <div class="pillar-num">01</div>
+            <div>
+              <h2 class="pillar-title">邊緣智慧</h2>
+              <p class="pillar-tag">機器中的心智。</p>
+              <p class="pillar-desc">推論與決策在裝置端進行，不必依賴雲端往返。</p>
+            </div>
+          </div>
+          <div class="pillar reveal">
+            <div class="pillar-num">02</div>
+            <div>
+              <h2 class="pillar-title">控制與系統</h2>
+              <p class="pillar-tag">決策，化為運動。</p>
+              <p class="pillar-desc">以感測、估測與閉環控制，將決策轉為致動。</p>
+            </div>
+          </div>
+          <div class="pillar reveal">
+            <div class="pillar-num">03</div>
+            <div>
+              <h2 class="pillar-title">智慧機器</h2>
+              <p class="pillar-tag">會思考的物質。</p>
+              <p class="pillar-desc">小型、可客製的機器，以軟硬協同設計圍繞明確任務打造。</p>
+            </div>
           </div>
         </div>
-        <div class="pillar reveal">
-          <div class="pillar-num">02</div>
-          <div>
-            <h2 class="pillar-title">控制與系統</h2>
-            <p class="pillar-tag">決策，化為運動。</p>
-            <p class="pillar-desc">以感測、估測與閉環控制，將決策轉為致動。</p>
-          </div>
-        </div>
-        <div class="pillar reveal">
-          <div class="pillar-num">03</div>
-          <div>
-            <h2 class="pillar-title">智慧機器</h2>
-            <p class="pillar-tag">會思考的物質。</p>
-            <p class="pillar-desc">小型、可客製的機器，以軟硬協同設計圍繞明確任務打造。</p>
-          </div>
-        </div>
+        <a class="more-link reveal" href="/zh/technology/" data-cursor="hover">探索我們的技術<span class="arrow">&#8594;</span></a>
       </div>
-      <a class="more-link reveal" href="/zh/technology/" data-cursor="hover">探索我們的技術<span class="arrow">&#8594;</span></a>
     </section>
 
     <!-- WORK -->
@@ -204,6 +207,20 @@
         </article>
       </div>
     </section>
+
+    <!-- MARQUEE: decorative echo of the footer line (aria-hidden; no new copy) -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee-track">
+        <span class="marquee-item">人工智慧 &times; 物理世界</span>
+        <span class="marquee-item">人工智慧 &times; 物理世界</span>
+        <span class="marquee-item">人工智慧 &times; 物理世界</span>
+        <span class="marquee-item">人工智慧 &times; 物理世界</span>
+        <span class="marquee-item">人工智慧 &times; 物理世界</span>
+        <span class="marquee-item">人工智慧 &times; 物理世界</span>
+        <span class="marquee-item">人工智慧 &times; 物理世界</span>
+        <span class="marquee-item">人工智慧 &times; 物理世界</span>
+      </div>
+    </div>
 
     <!-- CONTACT -->
     <section class="contact section-pad" id="contact" data-screen-label="Contact">
