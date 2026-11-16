@@ -384,11 +384,11 @@ Required verification: `node scripts/check.mjs` 全 PASS ＋ proof／ux tests �
 - 無頭 Chrome 巡檢正式站十頁加三個 404 路徑 × 1440／390：0 個 CSP 違規、0 個 JS 錯誤、無溢位；首頁是針床，內頁是星點，都沒有降階。
 
 **部署後仍開著的事**（沒有一項擋住這次部署）
-1. **Lighthouse 沒量到**：PageSpeed 的 API 與網頁版當天都回 429（額度用完），改天再量。
+1. **Lighthouse 沒量到**：PageSpeed 的 API 與網頁版當天都回 429（額度用完），改天再量。同日稍晚重試 API 仍是 429（未帶 API 金鑰時共用的每日額度）；本機沒有裝 Lighthouse，要量就得下載安裝，沒有他同意不裝。
 2. **Vercel 預覽站有登入保護**（302 轉到 vercel.com），外部腳本打不開，所以部署前用本機模擬代替。
-3. **Safari、Firefox、實機、低階手機仍然沒測**。
-4. **既有問題（不是這次造成的）**：`.vercelignore` 只排除 `docs/`，所以 `linku.tech/AGENTS.md`、`/CLAUDE.md`、`/scripts/*`、`/.github/*` 都公開可讀。內容本來就在公開的 GitHub repo，沒有新的外洩；但掛在公司網域上不專業，也可能被收錄。要改得動 `.vercelignore`（部署設定），照規則要先寫 brief 再交叉審查，這次沒動。
-5. 本機分支 `feat/kinetic-wall` 與遠端分支都還留著；`refs/backup/*` 只在本機，沒有推上去。
+3. **Safari、Firefox、實機、低階手機仍然沒測**。這台 Windows 機器上沒有 Firefox；Safari 只能在蘋果裝置上測。
+4. **既有問題（不是這次造成的）**：`.vercelignore` 只排除 `docs/`，所以 `linku.tech/AGENTS.md`、`/CLAUDE.md`、`/scripts/*`、`/.github/*` 都公開可讀。內容本來就在公開的 GitHub repo，沒有新的外洩；但掛在公司網域上不專業，也可能被收錄。要改得動 `.vercelignore`（部署設定），照規則要先寫 brief 再交叉審查，這次沒動。**同日已處理**：見 `docs/tasks/2026-11-16-vercelignore-scope.md`（PR linkuofficial/linku-web#6，合併 `1bfa7ba`，正式站上這些路徑已回 404）。
+5. 本機分支 `feat/kinetic-wall` 與遠端分支都還留著；`refs/backup/*` 只在本機，沒有推上去。**同日已刪分支**（本機與遠端；已確認完全併入 main）；`refs/backup/*` 仍只在本機。
 
 這次部署沒有新增跨 repo 的決策，`decisions-ledger.md` 未動；也沒有跑交叉審查，scorecard 不需要記一行。
 
@@ -680,4 +680,8 @@ test('T4: native find exposes the matched pillar', async ({ page, browserName })
 - 2026-11-16：「**確認沒問題後commit+push 完整部署並收尾**」。
 - 決定: 先在本機模擬正式站的標頭與 404 驗證，再 commit `60d1f79` → PR linkuofficial/linku-web#5（兩輪 CI 綠、Vercel 預覽成功）→ 合併 `a0f7cb5` → Vercel 正式部署 → 正式站驗證。他沒有看過 404 頁與新分享圖的實際上線狀態（只看過截圖）。
 - 部署後仍開著的事: 見「2026-11-16 部署與收尾」的五項（Lighthouse 未量、預覽站登入保護、跨瀏覽器與實機、`.vercelignore` 既有的公開範圍、分支未刪）。
+- 日期: 2026-11-16
+
+- 2026-11-16：「**可推 該做的做一做**」。
+- 決定: `.vercelignore` 公開範圍另開任務處理並部署（`docs/tasks/2026-11-16-vercelignore-scope.md`）；`feat/kinetic-wall` 本機與遠端分支已刪；Lighthouse 重試仍 429；本機驗證伺服器（8080、8081）改成只綁 127.0.0.1（不在 repo 內）。其餘開著的事的進度記在「2026-11-16 部署與收尾」。
 - 日期: 2026-11-16

@@ -1,5 +1,5 @@
 # TASK: vercelignore-scope
-狀態: review
+狀態: done（2026-11-16 PR linkuofficial/linku-web#6 合併為 `1bfa7ba`，已部署並在正式站驗證）
 建立: 2026-11-16 ｜ 秘書層: claude-opus-5-5 ｜ 實作層: claude-opus-5-5
 Repo: web
 Base: main @ 5b9c479（未提交工作樹）
@@ -57,8 +57,8 @@ Required verification: `node scripts/check.mjs` 全 PASS（含新增的 §13）�
   - 新增未追蹤的 `notes.txt`
 - [x] `grep -P '[\x00-\x08]' scripts/check.mjs` 沒有命中（正則被工具吃掉反斜線的舊坑）
 - [x] 本機 Vercel 模擬：九頁、404 頁、`assets/`、站台根檔回 200；被排除的路徑回 404
-- [ ] （合併時）PR 的 Vercel 預覽部署成功，代表沒有建置步驟依賴被排除的檔案
-- [ ] （合併後）正式站逐路徑探測：規則檔與工具檔 404，頁面與資源 200
+- [x] （合併時）PR 的 Vercel 預覽部署成功，代表沒有建置步驟依賴被排除的檔案
+- [x] （合併後）正式站逐路徑探測：規則檔與工具檔 404，頁面與資源 200
 
 ## 邊界（不動）
 - `vercel.json`、所有頁面與資源、`sitemap.xml`、`robots.txt`、CI workflow 的內容。
@@ -69,6 +69,7 @@ Required verification: `node scripts/check.mjs` 全 PASS（含新增的 §13）�
 1. Vercel 專案在 dashboard 上的建置設定（Build Command、Ignored Build Step）我看不到：本機 Vercel CLI 沒有登入，我沒有替你登入。
    - 如果其中引用了 `scripts/`，排除後部署會失敗；正式站不受影響，因為 Vercel 不會上線失敗的部署。
    - 合併前看 PR 的預覽部署狀態就知道。
+   - **已解（2026-11-16）**：PR #6 的 Vercel 預覽部署成功（「Deployment has completed」），所以沒有建置步驟依賴被排除的檔案。
 2. 用 CLI 部署（`vercel` 指令）時，Vercel 會上傳本機的未追蹤檔（例如 `.claude/`）。目前一律走 Git 部署，所以這次不處理；之後若改用 CLI 部署再處理。
 
 ## HANDOFF
@@ -90,6 +91,18 @@ Required verification: `node scripts/check.mjs` 全 PASS（含新增的 §13）�
   - 模擬伺服器實作的是我對規則的解讀；Vercel 實際怎麼解讀，要合併後在正式站探測才算數。新規則只用和 `docs/` 同一種實證過的寫法，而且沒有任何頁面或資源的路徑含這些名稱，所以誤排除的空間很小。
   - Vercel 的 dashboard 建置設定看不到（見 Questions 1），PR 的預覽部署狀態會揭曉。
   - §13 把任何位置的 `index.html` 都當成公開頁面。若日後在 `docs/` 底下放 `index.html`，§13 會判成「被排除的公開頁」而 FAIL；這和 §1 原本就把所有 `index.html` 當頁面掃的限制一致。
+
+### 部署（2026-11-16，凜空對「開 PR 並部署」回「要」）
+- 流程：commit `dc59acc`（分支 `fix/vercelignore-scope`）→ PR linkuofficial/linku-web#6 → 合併為 `1bfa7ba` → Vercel 自動部署到正式站。
+- PR 檢查：
+  - CI 兩輪（push、pull_request）都通過；CI 的紀錄裡 §13 實際跑了：54 個檔案都歸類，31 項全 PASS。
+  - Vercel 預覽部署成功。
+- 正式站驗證（合併後約 15 秒生效）：
+  - 用和本機模擬同一組 52 條路徑探測，全部符合預期：九頁、404 頁、`assets/`、站台根檔回 200；`/AGENTS.md`、`/CLAUDE.md`、`/README.md`、`scripts/`、`.github/`、`docs/` 回 404。
+  - 五個安全標頭都在。
+  - `index.html`、`main.js`、`render.js`、`styles.css`、`404.html` 的線上內容和 `git show 1bfa7ba:` 逐位元組相同。
+- 仍成立的限制（審查 Finding 2）：§13 FAIL 只會讓 GitHub CI 變紅，Vercel 的 Git 部署不等 CI，照樣會上線。這是本站所有檢查共通的既有情況，這次沒有改。
+- 分支 `fix/vercelignore-scope`（本機與遠端）確認完全併入 main 後已刪。
 
 ## Review
 - **Reviewer**：Codex（GPT-6 家族；與實作者 Claude 不同家族）
@@ -268,3 +281,4 @@ export function reviewSection13(source) {
 
 ## 裁決（凜空）
 - 2026-11-16：「要」——處理規則檔公開的問題（範圍：brief、交叉審查、改 `.vercelignore`，停在等裁決、不 commit）。
+- 2026-11-16：「要」——開 PR 並部署（CI 與預覽部署成功後合併，再到正式站逐路徑驗）。
