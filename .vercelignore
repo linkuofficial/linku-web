@@ -1,4 +1,13 @@
-# Keep internal briefs and rendering prototypes out of the public deployment.
-# They live in the repo as records but must not be served at linku.tech/docs/*.
+# Only the site itself is deployed: pages, assets/, and the root site files.
+# Internal briefs, prototypes, agent rules, repo docs, tooling and CI config
+# live in the repo as records but must not be served at linku.tech.
 # (.vercelignore uses .gitignore syntax; affects deploy upload only, not git.)
+# Keep to plain names ("name" or "name/", matched at any depth):
+# scripts/check.mjs §13 checks every repo file against these lines and
+# fails on any other syntax.
 docs/
+scripts/
+.github/
+AGENTS.md
+CLAUDE.md
+README.md

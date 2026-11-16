@@ -39,7 +39,7 @@
 python D:\LINKU\nocache_server.py   # http://localhost:8080，no-cache（刻意放在 repo 外）
 ```
 - 本機預覽**沒有** `vercel.json` 的安全標頭（CSP）與 Vercel 的 404 行為；Vercel 預覽站有登入保護，外部腳本打不開。部署前要驗 CSP 時，用一支本機伺服器照 `vercel.json` 加標頭、照 `.vercelignore` 排除、找不到就回 `404.html`＋404，再用無頭 Chrome 收 `securitypolicyviolation`（2026-11-16 做法，見簡報「部署與收尾」）。
-- `.vercelignore` 目前只排除 `docs/`：`AGENTS.md`、`CLAUDE.md`、`scripts/`、`.github/` 在 linku.tech 上公開可讀（2026-11-16 發現，未處理；改它屬部署設定，要 brief＋交叉）。
+- **部署範圍（2026-11-16，簡報 `docs/tasks/2026-11-16-vercelignore-scope.md`）**：linku.tech 只提供頁面、`assets/` 與站台根檔；`docs/`、`scripts/`、`.github/`、`AGENTS.md`、`CLAUDE.md`、`README.md` 由 `.vercelignore` 排除。**新增任何檔案都要歸類**：該公開的加進 check §13 的公開清單，不該公開的加進 `.vercelignore`（沒歸類 §13 會擋）。`.vercelignore` 只寫「名稱」或「名稱/」，§13 不認其他寫法；改它屬部署設定，要 brief＋交叉。
 
 ## 驗證門檻（宣稱完成前）
 1. 本機 http 預覽三個語言頁面都實看（絕對路徑資源在 `file://` 下會壞，別誤判）。

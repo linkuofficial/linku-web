@@ -45,6 +45,10 @@
  * 12. 404.html（2026-11-16）：noindex、不宣告 canonical／hreflang、不進 sitemap、
  *     lang 標記的中日文段落 CJK 子集完整；§4–6、§9、§11 也涵蓋這一頁
  *     （§1–3 只掃 index.html）
+ * 13. 部署範圍（2026-11-16）：repo 的每個檔案（git 追蹤中＋未追蹤但未被
+ *     .gitignore 忽略）都要歸類為「公開」「平台設定」或「被 .vercelignore
+ *     排除」——規則檔與工具檔不會默默上線，頁面與資源也不會被誤排除
+ *     （需要 git；.vercelignore 只接受「名稱」「名稱/」兩種寫法）
  *
  * 檢查範圍與已知限制（改動站台結構前先讀）：
  *  - 「CJK 字元」定義：漢字（U+4E00–9FFF、擴展A U+3400–4DBF、相容區 U+F900–FAFF）、
@@ -59,6 +63,7 @@
  *    （偽類、多層 combinator 等），本腳本會 FAIL 提示擴充，而非靜默跳過。
  */
 
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -1148,6 +1153,60 @@ console.log('=== 12. 404 頁（不收錄、三語並列） ===');
   }
   if (issues.length === 0) pass('404.html 不收錄、無正本宣告、未進 sitemap，三語段落的 CJK 子集完整');
   else for (const issue of issues) fail(issue);
+}
+
+// ---------- 13. 部署範圍 ----------
+// Vercel 從 Git 部署時上傳所有追蹤中的檔案（.vercelignore 排除的除外），
+// 所以 repo 裡的每個檔案都要歸類：公開的（頁面、assets、站台根檔）、Vercel
+// 會讀但不提供下載的設定檔（2026-11-16 正式站實測 404），或被 .vercelignore
+// 排除的。未追蹤但未被 .gitignore 忽略的檔案一起列，commit 前就會看到 FAIL。
+// .vercelignore 是 .gitignore 語法；這裡只實作「名稱」（任何深度的檔案或
+// 目錄）與「名稱/」（任何深度的目錄）——本站在 Vercel 上實證過的就是這種
+// 寫法。其他寫法直接 FAIL，要求擴充本檢查，不讓這裡和 Vercel 的解讀分岔。
+console.log('');
+console.log('=== 13. 部署範圍（哪些檔案會出現在 linku.tech） ===');
+{
+  const issues = [];
+  const rules = [];
+  for (const raw of readText(path.join(ROOT, '.vercelignore')).split(/\r?\n/)) {
+    const line = raw.replace(/\s+$/, '');
+    if (line === '' || line.startsWith('#')) continue;
+    const m = /^(\.?[A-Za-z0-9_-][A-Za-z0-9._-]*)(\/?)$/.exec(line);
+    if (!m) issues.push('.vercelignore — 不支援的寫法「' + line + '」：本檢查只認「名稱」與「名稱/」，要用路徑、萬用字元或否定請先擴充 §13');
+    else rules.push({ name: m[1], dirOnly: m[2] === '/' });
+  }
+  const excludedBy = (rel) => {
+    const parts = rel.split('/');
+    const dirs = parts.slice(0, -1);
+    return rules.find((r) => (r.dirOnly ? dirs : parts).includes(r.name));
+  };
+  const PUBLIC_ROOT_FILES = new Set(['404.html', 'favicon.ico', 'apple-touch-icon.png', 'robots.txt', 'sitemap.xml']);
+  const PLATFORM_FILES = new Set(['vercel.json', '.vercelignore', '.gitignore']);
+  const isPublic = (rel) => PUBLIC_ROOT_FILES.has(rel) || rel.startsWith('assets/') || /(^|\/)index\.html$/.test(rel);
+
+  let files = null;
+  try {
+    files = [...new Set(execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], { cwd: ROOT, encoding: 'utf8' })
+      .split('\0').filter(Boolean))].sort();
+  } catch (err) {
+    issues.push('無法用 git 列出 repo 檔案（' + err.message.split('\n')[0] + '）——本項需要在 git 工作樹內執行');
+  }
+  let publicCount = 0;
+  let excludedCount = 0;
+  for (const rel of files || []) {
+    const rule = excludedBy(rel);
+    if (isPublic(rel) || PLATFORM_FILES.has(rel)) {
+      if (rule) issues.push(rel + ' — 被 .vercelignore 的「' + rule.name + (rule.dirOnly ? '/' : '') + '」排除，正式站會少了它');
+      else if (isPublic(rel)) publicCount++;
+    } else if (rule) {
+      excludedCount++;
+    } else {
+      issues.push(rel + ' — 會被部署成 ' + SITE + '/' + rel + '：不該公開就加進 .vercelignore，該公開就加進 §13 的公開清單');
+    }
+  }
+  if (files && issues.length === 0) {
+    pass('repo 的 ' + files.length + ' 個檔案都已歸類：' + publicCount + ' 個公開、' + excludedCount + ' 個被 .vercelignore 排除、其餘為平台設定');
+  } else for (const issue of issues) fail(issue);
 }
 
 // ---------- 總結 ----------
